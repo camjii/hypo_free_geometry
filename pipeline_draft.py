@@ -1,8 +1,5 @@
 """
-Plan of action:
-Build a full pipeline that runs persistent homology on a activation matrix + extracts a persistence diagram + curvature report
-SOP: This gives concrete insight onto whether PH combined with curvature extraction methods is a viable method for our pipeline, and if this works in the direction of what we are trying to accomplish
-
+This pipeline does the following:
 
 1. Extracts model activations for a given feature
 2. Constructs a distance matrix
@@ -11,9 +8,6 @@ SOP: This gives concrete insight onto whether PH combined with curvature extract
 5. Get the curvature signature of the ε-graph via ollivier ricci curvature (GraphRicciCurvature)
 """
 
-
-
-
 import transformer_lens
 from transformer_lens import HookedTransformer
 import networkx as nx
@@ -21,6 +15,7 @@ from GraphRicciCurvature.OllivierRicci import OllivierRicci
 from ripser import ripser
 import numpy as np
 import torch
+from sklearn.metrics.pairwise import cosine_distances
 
 class Pipeline():
     def __init__(self,pos_prompts, neg_prompts):
@@ -39,9 +34,9 @@ class Pipeline():
 
             for prompt in prompts:
                 with torch.no_grad():
-                    _, cache = self.model.run_with_cache(prompt)
+                    _, cache = self.model.run_with_cache(prompt) #getting logits + cache per prompt
                 for l in range(self.model.cfg.n_layers):
-                    activations_dict[key][f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :])
+                    activations_dict[key][f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :]) #appending the activations at the last token to each layer
             
 
             for layer, act in activations_dict[key].items():
@@ -63,15 +58,13 @@ class Pipeline():
         print(f'The layer with the greatest mean vector is layer {opt_layer} with a mean of {max_diff_mean}')
 
 
-
         return opt_layer, contrastive_diff
 
 
                      
+    def create_distance_matrix(self, contrastive_diff):
+        return cosine_distances(contrastive_diff) #gets distance matrix in one vectorized call 
 
 
-
-
-        
-
-        
+    def create_epsilon_graph(self,cosine_distances):
+        pass 
