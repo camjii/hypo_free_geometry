@@ -16,7 +16,8 @@ from ripser import ripser
 import numpy as np
 import torch
 from sklearn.metrics.pairwise import cosine_distances
-
+import persim
+from sklearn.neighbors import radius_neighbors_graph
 class Pipeline():
     def __init__(self,pos_prompts, neg_prompts):
         self.model = HookedTransformer.from_pretrained('gpt-2')
@@ -39,7 +40,7 @@ class Pipeline():
                     activations_dict[key][f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :]) #appending the activations at the last token to each layer
             
 
-            for layer, act in activations_dict[key].items():
+            for layer, _ in activations_dict[key].items():
                 activations_dict[key][layer] = torch.stack(activations_dict[key][layer]) #stacking them to get matrix
 
 
@@ -60,11 +61,19 @@ class Pipeline():
 
         return opt_layer, contrastive_diff
 
-
-                     
+              
     def create_distance_matrix(self, contrastive_diff):
-        return cosine_distances(contrastive_diff) #gets distance matrix in one vectorized call 
+        dist_matrix = cosine_distances(contrastive_diff) #gets distance matrix in one vectorized call 
+        return dist_matrix
 
+    
+    def create_persistence_diagram(self, dist_matrix):   
+        persist_diagram = ripser(dist_matrix, maxdim = 1, distance_matrix=True, do_cocycles = False, n_perm = None )
+        return persist_diagram
+    
+    def create_epsilon_graph(self,dist_matrix):
+        graph = radius_neighbors_graph(dist_matrix,)
 
-    def create_epsilon_graph(self,cosine_distances):
-        pass 
+    #WIP
+
+       
