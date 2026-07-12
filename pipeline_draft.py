@@ -68,12 +68,20 @@ class Pipeline():
         return opt_layer, contrastive_diff
 
               
-    def create_distance_matrix(self, contrastive_diff):
+    
+    '''
+    Replace the create_distance_matrix function with running PCA on contrastive_diff
+
+    Figure out how a persistence diagram can be created from PCA
+    '''
+    
+    
+    def create_distance_matrix(self, contrastive_diff): 
         dist_matrix = cosine_distances(contrastive_diff) #gets distance matrix in one vectorized call 
         return dist_matrix
 
     
-    def create_persistence_diagram(self, dist_matrix):   
+    def create_persistence_diagram(self, dist_matrix):   #persistent homology from (eps = 1 to inf)
         persist_diagram = ripser(dist_matrix, maxdim = 1, distance_matrix=True, do_cocycles = False, n_perm = None )
         return persist_diagram
     
@@ -101,7 +109,3 @@ class Pipeline():
 
         return summ_dict
     
-
-    #def comparison(self):
-
-    #still need to ideate about this
