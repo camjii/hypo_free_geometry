@@ -22,7 +22,8 @@ import torch
 from sklearn.metrics.pairwise import cosine_distances
 import persim
 from sklearn.neighbors import radius_neighbors_graph
-
+import skdim
+from sklearn.decomposition import PCA
 
 class Pipeline():
     def __init__(self,pos_prompts, neg_prompts):
@@ -80,6 +81,23 @@ class Pipeline():
         dist_matrix = cosine_distances(contrastive_diff) #gets distance matrix in one vectorized call 
         return dist_matrix
 
+    def get_intrinsic_dim(self, contrastive_diff):
+        X = contrastive_diff.numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
+        d = skdim.id.TwoNN().fit(X).dimension_
+        print(f'Intrinsic dimension (TwoNN): {d:.2f}')
+        return d #returns ID using TwoNN
+
+    def apply_pca(self, contrastive_diff, var_threshold=0.90):
+        X = contrastive_diff.numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
+
+        pca = PCA(n_components=min(X.shape))          # fit all components
+        X_full = pca.fit_transform(X)
+
+        m = int(np.searchsorted(np.cumsum(pca.explained_variance_ratio_), var_threshold)) + 1
+        X_reduced = X_full[:, :m]
+
+        print(f'PCA: keeping m={m} components ({var_threshold*100:.0f}% variance)')
+        return X_reduced #returns matrix of nxm
     
     def create_persistence_diagram(self, dist_matrix):   #persistent homology from (eps = 1 to inf)
         persist_diagram = ripser(dist_matrix, maxdim = 1, distance_matrix=True, do_cocycles = False, n_perm = None )
