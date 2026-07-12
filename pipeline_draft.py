@@ -8,6 +8,10 @@ This pipeline does the following:
 5. Get the curvature signature of the ε-graph via ollivier ricci curvature (GraphRicciCurvature)
 """
 
+import os
+os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
+#
+
 import transformer_lens
 from transformer_lens import HookedTransformer
 import networkx as nx
@@ -18,6 +22,8 @@ import torch
 from sklearn.metrics.pairwise import cosine_distances
 import persim
 from sklearn.neighbors import radius_neighbors_graph
+
+
 class Pipeline():
     def __init__(self,pos_prompts, neg_prompts):
         self.model = HookedTransformer.from_pretrained('gpt-2')
@@ -71,9 +77,31 @@ class Pipeline():
         persist_diagram = ripser(dist_matrix, maxdim = 1, distance_matrix=True, do_cocycles = False, n_perm = None )
         return persist_diagram
     
-    def create_epsilon_graph(self,dist_matrix):
-        graph = radius_neighbors_graph(dist_matrix,)
+    def create_epsilon_graph(self,dist_matrix, eps):
+        graph = radius_neighbors_graph(dist_matrix,radius = eps,mode = 'distance', metric='precomputed') #nxn matrix of weights that connect edges
+        '''
+        mode = 'distance' ensures that the graph is not binary (when all distances are 1.0)
+        '''
+        
+        graph = nx.Graph(graph) #
+        
+        return graph 
+   
+    def compute_ollivier_ricci(self, graph):
+        orc = OllivierRicci(graph, alpha = 0.5, verbose = 'INFO') 
+        orc_curv = orc.compute_ricci_curvature()
 
-    #WIP
+        raw_values = []
+        for edge in orc_curv.edges(data='ricciCurvature'):
+            raw_values.append(edge[-1]) #structure for each edge between points (u,v) is (u,v,curvature_value)
+        
+        mean_curv = np.mean(raw_values) 
 
-       
+        summ_dict = {'graph': orc_curv, 'mean_curvature': mean_curv, 'raw_values':raw_values}
+
+        return summ_dict
+    
+
+    #def comparison(self):
+
+    #still need to ideate about this
