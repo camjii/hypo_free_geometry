@@ -1,2 +1,2 @@
-class Comparison():
+class GroundTruth():
     pass 

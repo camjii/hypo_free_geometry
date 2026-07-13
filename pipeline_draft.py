@@ -98,6 +98,8 @@ class Pipeline():
 
         return projected
 
+    
+    # can we dissect the persistence diagram and compare feature birth/death to ground truth?
     def create_persistence_diagram(self, projected):   #persistent homology from (eps = 1 to inf)
         persist_diagram = ripser(projected, maxdim = 1, distance_matrix=True, do_cocycles = False, n_perm = None )
         return persist_diagram
