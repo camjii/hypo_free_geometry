@@ -24,6 +24,8 @@ from sklearn.metrics.pairwise import cosine_distances
 from sklearn.neighbors import radius_neighbors_graph
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+import skdim
+
 
 class Pipeline():
     def __init__(self,pos_prompts, neg_prompts):
@@ -97,7 +99,13 @@ class Pipeline():
         plt.show()
 
         return projected
-
+    
+    def get_intrinsic_dim(self, contrastive_diff):
+        X = contrastive_diff.numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
+        d = skdim.id.TwoNN().fit(X).dimension_
+        print(f'Intrinsic dimension (TwoNN): {d:.2f}')
+        return d #returns ID using TwoNN
+    
     def create_persistence_diagram(self, projected):   #persistent homology from (eps = 1 to inf)
         persist_diagram = ripser(projected, maxdim = 1, distance_matrix=True, do_cocycles = False, n_perm = None )
         return persist_diagram
@@ -125,4 +133,6 @@ class Pipeline():
         summ_dict = {'graph': orc_curv, 'mean_curvature': mean_curv, 'raw_values':raw_values}
 
         return summ_dict
+    
+
     
