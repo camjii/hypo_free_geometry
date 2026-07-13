@@ -12,7 +12,7 @@ import os
 os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
 #
 
-import transformer_lens
+# import transformer_lens
 from transformer_lens import HookedTransformer
 import networkx as nx
 from GraphRicciCurvature.OllivierRicci import OllivierRicci
@@ -20,9 +20,10 @@ from ripser import ripser
 import numpy as np
 import torch
 from sklearn.metrics.pairwise import cosine_distances
-import persim
+# import persim
 from sklearn.neighbors import radius_neighbors_graph
-
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
 
 class Pipeline():
     def __init__(self,pos_prompts, neg_prompts):
@@ -63,7 +64,7 @@ class Pipeline():
                 max_diff_mean, opt_layer, contrastive_diff = mean, layer, diff
 
         print(f'The layer with the greatest mean vector is layer {opt_layer} with a mean of {max_diff_mean}')
-
+        contrastive_diff.detach().cpu().numpy()
 
         return opt_layer, contrastive_diff
 
@@ -76,22 +77,38 @@ class Pipeline():
     '''
     
     
-    def create_distance_matrix(self, contrastive_diff): 
-        dist_matrix = cosine_distances(contrastive_diff) #gets distance matrix in one vectorized call 
-        return dist_matrix
+    def plot_pca(self, contrastive_diff):
+        pca = PCA(n_components=3)
+        projected = pca.fit_transform(contrastive_diff)
 
-    
-    def create_persistence_diagram(self, dist_matrix):   #persistent homology from (eps = 1 to inf)
-        persist_diagram = ripser(dist_matrix, maxdim = 1, distance_matrix=True, do_cocycles = False, n_perm = None )
+        fig = plt.figure(figsize=(7, 6))
+        ax = fig.add_subplot(projection='3d')
+        sc = ax.scatter(projected[:, 0], projected[:, 1], projected[:, 2],
+                         c=projected[:, 2], cmap='viridis',
+                         s=50, alpha=0.85, edgecolors='white', linewidths=0.5)
+        fig.colorbar(sc, ax=ax, label='PC3', shrink=0.6, pad=0.1)
+
+        var_ratio = pca.explained_variance_ratio_
+        ax.set_xlabel(f'PC1 ({var_ratio[0]*100:.1f}%)')
+        ax.set_ylabel(f'PC2 ({var_ratio[1]*100:.1f}%)')
+        ax.set_zlabel(f'PC3 ({var_ratio[2]*100:.1f}%)')
+        ax.set_title('PCA of contrastive activation differences')
+        fig.tight_layout()
+        plt.show()
+
+        return projected
+
+    def create_persistence_diagram(self, projected):   #persistent homology from (eps = 1 to inf)
+        persist_diagram = ripser(projected, maxdim = 1, distance_matrix=True, do_cocycles = False, n_perm = None )
         return persist_diagram
     
-    def create_epsilon_graph(self,dist_matrix, eps):
-        graph = radius_neighbors_graph(dist_matrix,radius = eps,mode = 'distance', metric='precomputed') #nxn matrix of weights that connect edges
+    def create_epsilon_graph(self,projected, eps):
+        graph = radius_neighbors_graph(projected,radius = eps,mode = 'distance', metric='precomputed') #nxn matrix of weights that connect edges
         '''
         mode = 'distance' ensures that the graph is not binary (when all distances are 1.0)
         '''
         
-        graph = nx.Graph(graph) #
+        graph = nx.Graph(graph) 
         
         return graph 
    
