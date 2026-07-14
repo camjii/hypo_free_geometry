@@ -4,8 +4,9 @@ class ManifoldComparator:
 
     def compare_manifolds(self, m1, m2):
         ID_diff = abs(m1.get_intrinsic_dim() - m2.get_intrinsic_dim())
-        curv_diff = 0
-        for i, j in [m1.compute_ollivier_ricci()[ 'raw_values' ], m2.compute_ollivier_ricci()[ 'raw_values' ]]:
-            curv_diff += (i - j)**2
-        
+        maxCurve = max(m1.compute_ollivier_ricci()['mean_curvature'], m2.compute_ollivier_ricci()['mean_curvature'])
+        minCurve = min(m1.compute_ollivier_ricci()['mean_curvature'], m2.compute_ollivier_ricci()['mean_curvature'])
+        curv_diff = 100 * (maxCurve - minCurve) / maxCurve if maxCurve != 0 else 0
+
         return ID_diff, curv_diff
+
