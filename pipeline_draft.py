@@ -79,28 +79,20 @@ class Pipeline():
     '''
     
     
+    def reduce_pca(self, contrastive_diff, var_threshold=0.95):
+        #Analysis reduction: keep enough components to capture the concept.
+        X = contrastive_diff.detach().cpu().numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
+        pca = PCA(n_components=min(X.shape))
+        full = pca.fit_transform(X)
+        m = int(np.searchsorted(np.cumsum(pca.explained_variance_ratio_), var_threshold)) + 1
+        print(f'PCA: keeping m={m} components ({var_threshold*100:.0f}% variance)')
+        return full[:, :m]                            # m vectors fed into ripser/curvature
+
     def plot_pca(self, contrastive_diff):
-        pca = PCA(n_components=3)
-        projected = pca.fit_transform(contrastive_diff)
-
-        fig = plt.figure(figsize=(7, 6))
-        ax = fig.add_subplot(projection='3d')
-        sc = ax.scatter(projected[:, 0], projected[:, 1], projected[:, 2],
-                         c=projected[:, 2], cmap='viridis',
-                         s=50, alpha=0.85, edgecolors='white', linewidths=0.5)
-        fig.colorbar(sc, ax=ax, label='PC3', shrink=0.6, pad=0.1)
-
-        var_ratio = pca.explained_variance_ratio_
-        ax.set_xlabel(f'PC1 ({var_ratio[0]*100:.1f}%)')
-        ax.set_ylabel(f'PC2 ({var_ratio[1]*100:.1f}%)')
-        ax.set_zlabel(f'PC3 ({var_ratio[2]*100:.1f}%)')
-        ax.set_title('PCA of contrastive activation differences')
-        fig.tight_layout()
-        plt.show()
-
+        #Visualization only: 3-D projection
+        X = contrastive_diff.detach().cpu().numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
+        projected = PCA(n_components=3).fit_transform(X)
         return projected
-
-    # can we dissect the persistence diagram and compare feature birth/death to ground truth?
 
     def get_intrinsic_dim(self, contrastive_diff):
         X = contrastive_diff.numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
