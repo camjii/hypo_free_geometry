@@ -46,7 +46,7 @@ class TopologyMetric:
         self.topology = float(np.median(
             [r["diagram_distance"][f"H{max_dim}"]["bottleneck"] for r in runs]))
 
-        self.curvature = float(np.median(
+        self.curvature = float((0.3 - runs["curvature"]["frac_negative_difference"]) * np.median(
             [r["curvature"]["distribution_distance"] for r in runs]))
 
         self.metric = Metric(self.dimension, self.topology, self.curvature)
