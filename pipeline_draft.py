@@ -29,11 +29,14 @@ import skdim
 
 class Pipeline():
     def __init__(self,pos_prompts, neg_prompts):
-        self.model = HookedTransformer.from_pretrained('gpt-2')
+        self.model = HookedTransformer.from_pretrained('gpt2')
         self.pos_prompts = pos_prompts #get from CKA github
         self.neg_prompts = neg_prompts
 
     
+    
+
+  
     def get_layer(self):
         activations_dict = {'pos_activations': {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)}, 'neg_activations': {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers) }} #storing activations in dictionary
         act_types = ['pos', 'neg']
@@ -60,15 +63,16 @@ class Pipeline():
         for layer in activations_dict['pos_activations'].keys():
 
             diff = activations_dict['pos_activations'][layer] - activations_dict['neg_activations'][layer]
-            mean = np.abs(np.mean(diff))
+            mean = diff.mean(dim=0).norm().item() #norm of the mean-difference vector, not a scalar mean over all dims
 
             if mean > max_diff_mean:
                 max_diff_mean, opt_layer, contrastive_diff = mean, layer, diff
 
         print(f'The layer with the greatest mean vector is layer {opt_layer} with a mean of {max_diff_mean}')
-        contrastive_diff.detach().cpu().numpy()
+        contrastive_diff = contrastive_diff.detach().cpu().numpy()
+        opt_pos_activations = activations_dict['pos_activations'][opt_layer].detach().cpu().numpy()
 
-        return opt_layer, contrastive_diff
+        return opt_layer, contrastive_diff, opt_pos_activations
 
               
     
@@ -109,11 +113,11 @@ class Pipeline():
         return d #returns ID using TwoNN
 
     def create_persistence_diagram(self, projected):   #persistent homology from (eps = 1 to inf)
-        persist_diagram = ripser(projected, maxdim = 1, distance_matrix=True, do_cocycles = False, n_perm = None )
+        persist_diagram = ripser(projected, maxdim = 1, distance_matrix=False, do_cocycles = False, n_perm = None )
         return persist_diagram
     
     def create_epsilon_graph(self,projected, eps):
-        graph = radius_neighbors_graph(projected,radius = eps,mode = 'distance', metric='precomputed') #nxn matrix of weights that connect edges
+        graph = radius_neighbors_graph(projected,radius = eps,mode = 'distance', metric='euclidean') #nxn matrix of weights that connect edges
         '''
         mode = 'distance' ensures that the graph is not binary (when all distances are 1.0)
         '''
@@ -137,4 +141,3 @@ class Pipeline():
         return summ_dict
     
 
-    
