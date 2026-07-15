@@ -108,6 +108,12 @@ class Pipeline():
         persist_diagram = ripser(projected, maxdim = 1, distance_matrix=False, do_cocycles = False, n_perm = None )
         return persist_diagram
     
+    
+    def create_persistence_vector(self,persist_diagram):
+        #use persim.PersistenceImager
+        pass
+    
+    
     def create_epsilon_graph(self,projected, eps):
         graph = radius_neighbors_graph(projected,radius = eps,mode = 'distance', metric='euclidean') #nxn matrix of weights that connect edges
         '''
