@@ -44,41 +44,6 @@ class Pipeline():
 
     
     
-
-    def get_layer_positive(self):
-            activations_dict = {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)} #storing activations in dictionary
-            
-            prompts = self.pos_prompts 
-            
-
-            for prompt in prompts:
-                with torch.no_grad():
-                    _, cache = self.model.run_with_cache(prompt) #getting logits + cache per prompt
-                    for l in range(self.model.cfg.n_layers):
-                        activations_dict[f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :]) #appending the activations at the last token to each layer
-                
-
-            for layer, _ in activations_dict.items():
-                activations_dict[layer] = torch.stack(activations_dict[layer]) #stacking them to get matrix
-
-        
-        
-            max_act_mean, opt_layer, opt_activations = 0, None, None
-            for layer in activations_dict.keys():
-
-                act = activations_dict[layer]
-                mean = act.mean(dim=0).norm().item() / self.model.cfg.d_model #scaled L2 norm of vector 
-
-                if mean > max_act_mean:
-                    max_act_mean, opt_layer, opt_activations = mean, layer, act
-
-            print(f'The layer with the greatest mean vector is layer {opt_layer} with a mean of {max_act_mean}')
-            opt_activations.detach().cpu().numpy()
-        
-
-            return opt_layer, opt_activations
-
-
     def select_layer_by_topology(self, kind='noise', n_null=3, max_dim=1):
         '''
         Layer selection by shape, not magnitude: score each layer by how far its
@@ -108,44 +73,6 @@ class Pipeline():
 
         return best_layer, activations_dict[best_layer], scores
 
-    def get_layer(self):
-        activations_dict = {'pos_activations': {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)}, 'neg_activations': {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers) }} #storing activations in dictionary
-        act_types = ['pos', 'neg']
-        
-        for type in act_types:
-            prompts = self.pos_prompts if type == 'pos' else self.neg_prompts
-            key = f'{type}_activations'
-
-            for prompt in prompts:
-                with torch.no_grad():
-                    _, cache = self.model.run_with_cache(prompt) #getting logits + cache per prompt
-                for l in range(self.model.cfg.n_layers):
-                    activations_dict[key][f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :]) #appending the activations at the last token to each layer
-            
-
-            for layer, _ in activations_dict[key].items():
-                activations_dict[key][layer] = torch.stack(activations_dict[key][layer]) #stacking them to get matrix
-
-
-
-
-            #for each layer compute difference  of each matrix and get the mean
-        max_diff_mean, opt_layer, contrastive_diff = 0, None, None
-        for layer in activations_dict['pos_activations'].keys():
-
-            diff = activations_dict['pos_activations'][layer] - activations_dict['neg_activations'][layer]
-            mean = diff.mean(dim=0).norm().item() #norm of the mean-difference vector, not a scalar mean over all dims
-
-            if mean > max_diff_mean:
-                max_diff_mean, opt_layer, contrastive_diff = mean, layer, diff
-
-        print(f'The layer with the greatest mean vector is layer {opt_layer} with a mean of {max_diff_mean}')
-        contrastive_diff = contrastive_diff.detach().cpu().numpy()
-        opt_pos_activations = activations_dict['pos_activations'][opt_layer].detach().cpu().numpy()
-
-        return opt_layer, contrastive_diff, opt_pos_activations
-
-              
     
     '''
     Replace the create_distance_matrix function with running PCA on contrastive_diff
