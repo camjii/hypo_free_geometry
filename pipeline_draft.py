@@ -9,8 +9,14 @@ This pipeline does the following:
 """
 
 import os
-os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
-#
+
+# networkit (used by GraphRicciCurvature for all-pairs-shortest-path) bundles
+# its own OpenMP runtime; with torch/scipy/sklearn each bundling their own too,
+# multiple OpenMP runtimes threading in one process segfaults on macOS. Forcing
+# single-threaded OpenMP here sidesteps the conflict. Must be set before any
+# native lib below is imported -- OpenMP reads it at library init time.
+os.environ.setdefault('OMP_NUM_THREADS', '1')
+os.environ.setdefault('KMP_DUPLICATE_LIB_OK', 'TRUE')
 
 # import transformer_lens
 from transformer_lens import HookedTransformer
@@ -26,17 +32,82 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import skdim
 
+from null_cloud import Manifold
+from topology_metric import TopologyMetric
+
 
 class Pipeline():
-    def __init__(self,pos_prompts, neg_prompts):
+    def __init__(self,pos_prompts):
         self.model = HookedTransformer.from_pretrained('gpt2')
         self.pos_prompts = pos_prompts #get from CKA github
-        self.neg_prompts = neg_prompts
+        
 
     
     
 
-  
+    def get_layer_positive(self):
+            activations_dict = {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)} #storing activations in dictionary
+            
+            prompts = self.pos_prompts 
+            
+
+            for prompt in prompts:
+                with torch.no_grad():
+                    _, cache = self.model.run_with_cache(prompt) #getting logits + cache per prompt
+                    for l in range(self.model.cfg.n_layers):
+                        activations_dict[f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :]) #appending the activations at the last token to each layer
+                
+
+            for layer, _ in activations_dict.items():
+                activations_dict[layer] = torch.stack(activations_dict[layer]) #stacking them to get matrix
+
+        
+        
+            max_act_mean, opt_layer, opt_activations = 0, None, None
+            for layer in activations_dict.keys():
+
+                act = activations_dict[layer]
+                mean = act.mean(dim=0).norm().item() / self.model.cfg.d_model #scaled L2 norm of vector 
+
+                if mean > max_act_mean:
+                    max_act_mean, opt_layer, opt_activations = mean, layer, act
+
+            print(f'The layer with the greatest mean vector is layer {opt_layer} with a mean of {max_act_mean}')
+            opt_activations.detach().cpu().numpy()
+        
+
+            return opt_layer, opt_activations
+
+
+    def select_layer_by_topology(self, kind='noise', n_null=3, max_dim=1):
+        '''
+        Layer selection by shape, not magnitude: score each layer by how far its
+        activation cloud sits from its own null.
+        '''
+        activations_dict = {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)}
+
+        for prompt in self.pos_prompts:
+            with torch.no_grad():
+                _, cache = self.model.run_with_cache(prompt)
+                for l in range(self.model.cfg.n_layers):
+                    activations_dict[f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :])
+
+        for layer, _ in activations_dict.items():
+            activations_dict[layer] = torch.stack(activations_dict[layer]).detach().cpu().numpy()
+
+        best_layer, best_score, scores = None, -np.inf, {}
+        for layer, act in activations_dict.items():
+            manifold = Manifold(self, act, np.zeros_like(act), cloud=act, label=layer)
+            tm = TopologyMetric(manifold, kind=kind, n_null=n_null, max_dim=max_dim)
+            scores[layer] = tm.metric
+
+            if tm.topology > best_score:
+                best_score, best_layer = tm.topology, layer
+
+        print(f'Layer with the strongest topology-vs-null signal is {best_layer} (topology={best_score:.4f})')
+
+        return best_layer, activations_dict[best_layer], scores
+
     def get_layer(self):
         activations_dict = {'pos_activations': {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)}, 'neg_activations': {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers) }} #storing activations in dictionary
         act_types = ['pos', 'neg']
@@ -58,7 +129,7 @@ class Pipeline():
 
 
 
-            #for each layer compute difference of each matrix and get the mean
+            #for each layer compute difference  of each matrix and get the mean
         max_diff_mean, opt_layer, contrastive_diff = 0, None, None
         for layer in activations_dict['pos_activations'].keys():
 
@@ -92,10 +163,18 @@ class Pipeline():
         print(f'PCA: keeping m={m} components ({var_threshold*100:.0f}% variance)')
         return full[:, :m]                            # m vectors fed into ripser/curvature
 
-    def plot_pca(self, contrastive_diff):
-        #Visualization only: 3-D projection
-        X = contrastive_diff.detach().cpu().numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
-        projected = PCA(n_components=3).fit_transform(X)
+    def plot_pca(self, opt_pos_activations):
+        #Visualization only: 2-D projection
+        X = opt_pos_activations.detach().cpu().numpy() if isinstance(opt_pos_activations, torch.Tensor) else opt_pos_activations
+        projected = PCA(n_components=2).fit_transform(X)
+
+        plt.figure()
+        plt.scatter(projected[:, 0], projected[:, 1])
+        plt.xlabel('PC1')
+        plt.ylabel('PC2')
+        plt.title('PCA of layer activations')
+        plt.show()
+
         return projected
 
     def get_intrinsic_dim(self, contrastive_diff):
@@ -125,7 +204,7 @@ class Pipeline():
         return graph 
    
     def compute_ollivier_ricci(self, graph):
-        orc = OllivierRicci(graph, alpha = 0.5, verbose = 'INFO') 
+        orc = OllivierRicci(graph, alpha = 0.5, proc = 1, verbose = 'ERROR')
         orc_curv = orc.compute_ricci_curvature()
 
         raw_values = []
