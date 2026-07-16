@@ -66,8 +66,11 @@ class Pipeline():
             tm = TopologyMetric(manifold, kind=kind, n_null=n_null, max_dim=max_dim)
             scores[layer] = tm.metric
 
-            if tm.topology > best_score:
-                best_score, best_layer = tm.topology, layer
+            # topology is [H0, H1] bottleneck vs null; H1 (loop structure) is the
+            # signal layer selection previously scored on when max_dim defaulted to 1.
+            h1_score = tm.topology[1]
+            if h1_score > best_score:
+                best_score, best_layer = h1_score, layer
 
         print(f'Layer with the strongest topology-vs-null signal is {best_layer} (topology={best_score:.4f})')
 

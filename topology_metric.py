@@ -3,23 +3,17 @@ Three numbers classifying a manifold against its own null.
 
     TopologyMetric(m1).metric  ->  (dimension, topology, curvature)
 
-(0, 0, 0) means indistinguishable from the null: no structure the pairing
-produced. Each axis is a distance, so each is >= 0 and larger = further from
-null.
-
 One axis per pipeline measurement:
-    dimension  |ID_concept - ID_null|              how much more/less complex
-    topology   H{max_dim} bottleneck vs null       features the null lacks
-    curvature  Wasserstein between curvature dists how differently organised
+    dimension   |ID_concept - ID_null|
+    topology    [H0, H1] bottleneck vs null
+    curvature   distribution_distance * (0.3 - frac_negative_difference)
 
-Two things the vector is NOT:
-  - It is not a point in a metric space. The three axes are in different units
-    (dimensions, normalised distance, curvature), so ||metric|| is meaningless.
-    Read the three separately; never sum, average, or norm them.
-  - It is not a significance test. These are distances from ONE null draw
-    (or the median of n_null draws). They say how far from null, not whether
-    that distance is large. Raise n_null to reduce variance; that still is not
-    a p-value.
+Not a point in a metric space: the three axes are in different units
+(dimensions, normalised distance, curvature), so ||metric|| is meaningless.
+Read them separately; never sum, average, or norm them.
+
+Not a significance test: these are distances from one null draw. They say how
+far from null, not whether that distance is large.
 """
 
 import numpy as np
@@ -45,8 +39,10 @@ class TopologyMetric:
         # them all, so it mostly measures the null's noise volume. Bottleneck
         # reports only the single worst-matched feature -- the concept's real
         # structure, which is what classifies.
-        self.topology = float(np.median(
-            [r["diagram_distance"][f"H{max_dim}"]["bottleneck"] for r in runs]))
+        self.topology = [
+            float(np.median([r["diagram_distance"]["H0"]["bottleneck"] for r in runs])),
+            float(np.median([r["diagram_distance"]["H1"]["bottleneck"] for r in runs])),
+        ]  # metric for H0 and H1 separately
 
         frac_negative_difference = np.median(
             [r["curvature"]["frac_negative_difference"] for r in runs])
@@ -55,11 +51,13 @@ class TopologyMetric:
 
         self.metric = Metric(self.dimension, self.topology, self.curvature)
         self.label = manifold.label
-        self.n_null = n_null
 
     def getMetric(self):
         return self.metric
 
+    def __iter__(self):
+        return iter(self.metric)
+
     def __repr__(self):
         return (f"TopologyMetric({self.label}: dimension={self.dimension:.3f}, "
-                f"topology={self.topology:.3f}, curvature={self.curvature:.3f})")
+                f"topology={self.topology}, curvature={self.curvature:.3f})")
