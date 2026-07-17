@@ -34,7 +34,10 @@ class TopologyMetric:
         # them all, so it mostly measures the null's noise volume. Bottleneck
         # reports only the single worst-matched feature -- the concept's real
         # structure, which is what classifies.
-        self.topology = [float(r["diagram_distance"]["H0"]["bottleneck"]), float(r["diagram_distance"]["H1"]["bottleneck"])] #metric for H0 and H1 seperately
+        H0_bottleneck = float(r["diagram_distance"]["H0"]["bottleneck"])
+        H1_bottleneck = float(r["diagram_distance"]["H1"]["bottleneck"])
+        min_bottleneck = min(H0_bottleneck, H1_bottleneck)
+        self.topology = [H0_bottleneck, H1_bottleneck, min_bottleneck] #metric for H0, H1, and lowest bottleneck irresepctive of feature seperately
 
 
         c = r["curvature"]
