@@ -30,7 +30,7 @@ class ManifoldComparator:
             }
         return out
  
-    def curvature_difference(self, m1, m2):
+    def curvature_difference(self, m1, m2): 
         """Distributions"""
         c1 = np.asarray(m1.curvature_values, dtype=float)
         c2 = np.asarray(m2.curvature_values, dtype=float)
