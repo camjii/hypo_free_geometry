@@ -25,7 +25,6 @@ from GraphRicciCurvature.OllivierRicci import OllivierRicci
 from ripser import ripser
 import numpy as np
 import torch
-from sklearn.metrics.pairwise import cosine_distances
 # import persim
 from sklearn.neighbors import radius_neighbors_graph
 from sklearn.decomposition import PCA
@@ -62,7 +61,7 @@ class Pipeline():
 
         best_layer, best_score, scores = None, -np.inf, {}
         for layer, act in activations_dict.items():
-            manifold = Manifold(self, act, np.zeros_like(act), cloud=act, label=layer)
+            manifold = Manifold(self, act, cloud=act, label=layer)
             tm = TopologyMetric(manifold, kind=kind, n_null=n_null, max_dim=max_dim)
             scores[layer] = tm.metric
 
@@ -77,11 +76,7 @@ class Pipeline():
         return best_layer, activations_dict[best_layer], scores
 
     
-    '''
-    Replace the create_distance_matrix function with running PCA on contrastive_diff
-
-    Figure out how a persistence diagram can be created from PCA
-    '''
+    
     
     
     def reduce_pca(self, contrastive_diff, var_threshold=0.95):
@@ -94,15 +89,26 @@ class Pipeline():
         return full[:, :m]                            # m vectors fed into ripser/curvature
 
     def plot_pca(self, opt_pos_activations):
-        #Visualization only: 2-D projection
+        #Visualization: 2-D and 3-D projections
         X = opt_pos_activations.detach().cpu().numpy() if isinstance(opt_pos_activations, torch.Tensor) else opt_pos_activations
-        projected = PCA(n_components=2).fit_transform(X)
+        projected = PCA(n_components=3).fit_transform(X)
 
+        # 2-D projection (PC1 vs PC2)
         plt.figure()
         plt.scatter(projected[:, 0], projected[:, 1])
         plt.xlabel('PC1')
         plt.ylabel('PC2')
-        plt.title('PCA of layer activations')
+        plt.title('PCA of layer activations (2-D)')
+        plt.show()
+
+        # 3-D projection (PC1, PC2, PC3)
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        ax.scatter(projected[:, 0], projected[:, 1], projected[:, 2])
+        ax.set_xlabel('PC1')
+        ax.set_ylabel('PC2')
+        ax.set_zlabel('PC3')
+        ax.set_title('PCA of layer activations (3-D)')
         plt.show()
 
         return projected

@@ -32,16 +32,15 @@ class Manifold:
               manifold can build its own null with no forward passes.
     """
 
-    def __init__(self, pipeline, pos_acts, neg_acts, cloud=None,
+    def __init__(self, pipeline, opt_activations, cloud=None,
                  label="concept", seed=0, eps_density=0.10, var_threshold=0.95):
         self.pipeline = pipeline
-        self.pos = np.asarray(pos_acts)
-        self.neg = np.asarray(neg_acts)
+        self.opt= np.asarray(opt_activations)
         self.label = label
         self.rng = np.random.default_rng(seed)
         self.eps_density = eps_density
         self.var_threshold = var_threshold
-        self.cloud = self.pos - self.neg if cloud is None else np.asarray(cloud)
+        self.cloud = self.opt  if cloud is None else np.asarray(cloud)
         self._measure()
 
     def _measure(self):
@@ -84,14 +83,14 @@ class Manifold:
             perm = self.rng.permutation(n)
             while np.any(perm == np.arange(n)):        # no accidental true pairs
                 perm = self.rng.permutation(n)
-            cloud = self.pos - self.neg[perm]
+            cloud = self.opt
         elif kind == "noise":
             cov = np.cov(self.cloud.T) + 1e-6 * np.eye(self.cloud.shape[1])
             cloud = self.rng.multivariate_normal(self.cloud.mean(0), cov, n)
         else:
             raise ValueError(f"unknown null kind: {kind}")
 
-        return Manifold(self.pipeline, self.pos, self.neg, cloud=cloud,
+        return Manifold(self.pipeline, self.opt, cloud=cloud,
                         label=f"null:{kind}", seed=int(self.rng.integers(1 << 30)),
                         eps_density=self.eps_density, var_threshold=self.var_threshold)  #null(manifold) returns manifold of its null
 
