@@ -18,7 +18,7 @@ far from null, not whether that distance is large.
 
 import numpy as np
 from collections import namedtuple
-
+from null_cloud import ManifoldComparator
 Metric = namedtuple("Metric", ["dimension", "topology", "curvature"])
 
 
