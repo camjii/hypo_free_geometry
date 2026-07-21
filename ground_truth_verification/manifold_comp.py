@@ -1,9 +1,10 @@
 '''
 1. Run ground truth experiment from paper (e.g. karkada historical years "The year is x", gemma2-2b)
 2. Run our pipeline with same prompt package
-3. Get point clouds, ph graph, id + ricci curvature
-4. align clouds with geometric representation alignment, track mean + median edge curvature
-5. boostrap point clouds (or activations with replacement) and rerun to get confidence intervals
+3. Validate our Ricci curvature code against GraphRicciCurvature (OTD/ATD) on a known graph (e.g. karate club) before trusting it
+4. Get point clouds, ph graph, id + ricci curvature
+5. align clouds with geometric representation alignment, track mean + median edge curvature
+6. boostrap point clouds (or activations with replacement) and rerun to get confidence intervals
 '''
 
 import os
@@ -30,7 +31,7 @@ class GroundTruthComp():
         self.label = label
 
     def get_pipeline_cloud(self):
-        """O step 2-3: run our pipeline, return its point cloud at the selected layer."""
+        """ O step 2-3: run our pipeline, return its point cloud at the selected layer."""
         pass
 
     def build_manifolds(self, pipeline_acts):

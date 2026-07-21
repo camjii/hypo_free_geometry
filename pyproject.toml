@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hypo-free-geometry-recovery"
+version = "0.0.1"
+requires-python = ">=3.11"
+
+[tool.setuptools]
+py-modules = [
+    "pipeline_draft",
+    "concept_geometry",
+    "clustering_algo",
+    "compare",
+    "ground_truth_comp",
+    "null_cloud",
+    "topology_metric",
+]

@@ -36,9 +36,10 @@ from topology_metric import TopologyMetric
 
 
 class Pipeline():
-    def __init__(self,pos_prompts):
-        self.model = HookedTransformer.from_pretrained('gpt2')
-        self.pos_prompts = pos_prompts #get from CKA github
+    def __init__(self,model_name:str, prompts):
+        self.model_name = model_name
+        self.model = HookedTransformer.from_pretrained(self.model_name)
+        self.prompts = prompts 
         
 
     
@@ -50,7 +51,7 @@ class Pipeline():
         '''
         activations_dict = {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)}
 
-        for prompt in self.pos_prompts:
+        for prompt in self.prompts:
             with torch.no_grad():
                 _, cache = self.model.run_with_cache(prompt)
                 for l in range(self.model.cfg.n_layers):
