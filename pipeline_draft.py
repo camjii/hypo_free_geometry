@@ -44,18 +44,20 @@ class Pipeline():
 
     
     
-    def select_layer_by_topology(self, kind='noise', n_null=3, max_dim=1):
+    def select_layer_by_topology(self, kind='noise', max_dim=1, n_nulls=30):
         '''
         Layer selection by shape, not magnitude: score each layer by how far its
-        activation cloud sits from its own null.
+        activation cloud sits from its own null, z-scored against n_nulls
+        independent null draws rather than one (see topology_metric.py) so the
+        winner isn't just whichever layer's single null draw landed oddly.
         '''
-        activations_dict = {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)}
+        activations_dict = {f'layer_{l}':[] for l in range(self.model.cfg.n_layers)}
 
         for prompt in self.prompts:
             with torch.no_grad():
                 _, cache = self.model.run_with_cache(prompt)
                 for l in range(self.model.cfg.n_layers):
-                    activations_dict[f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :])
+                    activations_dict[f'layer_{l}'].append(cache['resid_post', l][0, -1, :])
 
         for layer, _ in activations_dict.items():
             activations_dict[layer] = torch.stack(activations_dict[layer]).detach().cpu().numpy()
@@ -63,16 +65,17 @@ class Pipeline():
         best_layer, best_score, scores = None, -np.inf, {}
         for layer, act in activations_dict.items():
             manifold = Manifold(self, act, cloud=act, label=layer)
-            tm = TopologyMetric(manifold, kind=kind, n_null=n_null, max_dim=max_dim)
+            tm = TopologyMetric(manifold, kind=kind, max_dim=max_dim, n_nulls=n_nulls)
             scores[layer] = tm.metric
 
-            # topology is [H0, H1] bottleneck vs null; H1 (loop structure) is the
-            # signal layer selection previously scored on when max_dim defaulted to 1.
+            # topology is [H0, H1, min] z-score vs null; H1 (loop structure) is
+            # the signal layer selection previously scored on when max_dim
+            # defaulted to 1.
             h1_score = tm.topology[1]
             if h1_score > best_score:
                 best_score, best_layer = h1_score, layer
 
-        print(f'Layer with the strongest topology-vs-null signal is {best_layer} (topology={best_score:.4f})')
+        print(f'Layer with the strongest topology-vs-null signal is {best_layer} (z={best_score:.4f})')
 
         return best_layer, activations_dict[best_layer], scores
 
@@ -80,9 +83,9 @@ class Pipeline():
     
     
     
-    def reduce_pca(self, contrastive_diff, var_threshold=0.95):
+    def reduce_pca(self, opt_pos_activations, var_threshold=0.95):
         #Analysis reduction: keep enough components to capture the concept.
-        X = contrastive_diff.detach().cpu().numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
+        X = opt_pos_activations.detach().cpu().numpy() if isinstance(opt_pos_activations, torch.Tensor) else opt_pos_activations
         pca = PCA(n_components=min(X.shape))
         full = pca.fit_transform(X)
         m = int(np.searchsorted(np.cumsum(pca.explained_variance_ratio_), var_threshold)) + 1

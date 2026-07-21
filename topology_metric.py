@@ -5,40 +5,56 @@ Three numbers classifying a manifold against its own null.
 
 One axis per pipeline measurement:
     dimension   |ID_concept - ID_null|
-    topology    H{max_dim} bottleneck vs null
+    topology    H{max_dim} bottleneck vs null, z-scored against null-vs-null spread
     curvature   distribution_distance * (frac_negative_difference - 0.25)
 
 Not a point in a metric space: the three axes are in different units
 (dimensions, normalised distance, curvature), so ||metric|| is meaningless.
 Read them separately; never sum, average, or norm them.
 
-Not a significance test: these are distances from one null draw. They say how
-far from null, not whether that distance is large.
+topology is the one axis built as an actual test rather than a single-sample
+distance: n_nulls independent null draws give a null-vs-null bottleneck
+distribution (pure sampling noise, no real signal by construction), and the
+concept's own bottleneck-to-null is z-scored against that distribution. A
+single-draw distance can't tell "genuinely far from null" apart from "this
+particular null draw happened to land oddly" -- z-scoring against repeated
+draws can.
 """
 
 import numpy as np
+import persim
 from collections import namedtuple
-from null_cloud import ManifoldComparator
+from null_cloud import ManifoldComparator, _finite
 Metric = namedtuple("Metric", ["dimension", "topology", "curvature"])
 
 
 class TopologyMetric:
 
-    def __init__(self, manifold, kind="shuffled", max_dim=1):
-        r = ManifoldComparator().compare(manifold, manifold.null(kind), max_dim)
+    def __init__(self, manifold, kind="noise", max_dim=1, n_nulls=5):
+        comparator = ManifoldComparator()
+        nulls = [manifold.null(kind) for _ in range(n_nulls)]
 
+        r = comparator.compare(manifold, nulls[0], max_dim)
         self.dimension = float(r["id_difference"])
 
-        # bottleneck, not wasserstein: the null's mismatched subtraction smears
-        # variance and generates a thicket of short noise bars. Wasserstein sums
-        # them all, so it mostly measures the null's noise volume. Bottleneck
-        # reports only the single worst-matched feature -- the concept's real
-        # structure, which is what classifies.
-        H0_bottleneck = float(r["diagram_distance"]["H0"]["bottleneck"])
-        H1_bottleneck = float(r["diagram_distance"]["H1"]["bottleneck"])
-        min_bottleneck = min(H0_bottleneck, H1_bottleneck)
-        self.topology = [H0_bottleneck, H1_bottleneck, min_bottleneck] #metric for H0, H1, and lowest bottleneck irresepctive of feature seperately
-
+        # z-score, not a single bottleneck: nulls[0] is the anchor for the
+        # null-vs-null baseline, nulls[1:] are compared against both the
+        # concept and the anchor so the two distributions are measured against
+        # the exact same set of comparison draws.
+        anchor, comparisons = nulls[0], nulls[1:]
+        self.topology = []
+        for k in range(min(max_dim + 1, len(manifold.dgms))):
+            concept_dgm = _finite(manifold.dgms[k])
+            anchor_dgm = _finite(anchor.dgms[k])
+            real_dists = np.array([
+                persim.bottleneck(concept_dgm, _finite(n.dgms[k])) for n in comparisons
+            ])
+            null_dists = np.array([
+                persim.bottleneck(anchor_dgm, _finite(n.dgms[k])) for n in comparisons
+            ])
+            z = (real_dists.mean() - null_dists.mean()) / (null_dists.std() + 1e-9)
+            self.topology.append(float(z))
+        self.topology.append(min(self.topology)) #metric for H0, H1, and lowest z-score irrespective of feature separately
 
         c = r["curvature"]
         self.curvature = float(c["distribution_distance"]

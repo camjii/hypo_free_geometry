@@ -7,6 +7,12 @@ from compare import ManifoldComparator
 from null_cloud import Manifold
 from topology_metric import TopologyMetric
 
+#train an autoencoder?  
+
+
+
+
+
 
 class ClusteringAlgo():
 
@@ -34,7 +40,7 @@ class ClusteringAlgo():
     
 
     def clustering_metric():
-            
+
 
         pass
 

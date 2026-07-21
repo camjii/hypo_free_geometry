@@ -1,13 +1,12 @@
 """
 Compare a concept manifold against its own null.
 
-    m1 = Manifold(pipeline, pos_acts, neg_acts)
+    m1 = Manifold(pipeline, opt_activations)
     ManifoldComparator().compare(m1, m1.null())
 
 A manifold carries the activations it was built from, so it can generate its own
-null: same prompts, same model, same layer, same n -- only the pos/neg pairing
-broken. Both are measured by the same method, so the comparison reflects the
-data rather than two code paths.
+null: same prompts, same model, same layer, same n. Both are measured by the
+same method, so the comparison reflects the data rather than two code paths.
 """
 
 import numpy as np
@@ -69,21 +68,31 @@ class Manifold:
         curv = self.pipeline.compute_ollivier_ricci(graph)
         self.curvature_values = np.asarray(curv["raw_values"], dtype=float)
 
-    def null(self, kind="shuffled"):
+    def null(self, kind="noise"):
         """A null of this manifold, measured identically.
 
-        shuffled: break the pos/neg pairing only -- everything else identical.
-                  The tightest counterfactual, and the only null that tests
-                  whether the pairing did any work.
-        noise:    Gaussian with this cloud's own mean and covariance.
+        noise:    Gaussian with this cloud's own mean and covariance. Works for
+                  any cloud, since it only needs the cloud itself.
+        shuffled: intended to break a pos/neg pairing (e.g. cloud = pos - neg)
+                  by re-pairing each pos with a different neg. Not usable here:
+                  Manifold is only ever handed one already-built cloud, with no
+                  separate pos/neg arrays to re-pair -- permuting the row order
+                  of a single point cloud leaves the point *set* unchanged, so
+                  ID/persistence/curvature would be identical to the original
+                  and the null would be a no-op. Raises rather than silently
+                  returning a fake null; extend Manifold to carry pos and neg
+                  separately if this is needed.
         """
         n = len(self.cloud)
 
         if kind == "shuffled":
-            perm = self.rng.permutation(n)
-            while np.any(perm == np.arange(n)):        # no accidental true pairs
-                perm = self.rng.permutation(n)
-            cloud = self.opt
+            raise NotImplementedError(
+                "kind='shuffled' requires a genuine pos/neg pairing to break; "
+                "Manifold does not carry separate pos/neg arrays in this "
+                "codebase today, so there is nothing to re-pair. Use "
+                "kind='noise', or extend Manifold to accept pos and neg "
+                "activations separately before adding this back."
+            )
         elif kind == "noise":
             cov = np.cov(self.cloud.T) + 1e-6 * np.eye(self.cloud.shape[1])
             cloud = self.rng.multivariate_normal(self.cloud.mean(0), cov, n)
