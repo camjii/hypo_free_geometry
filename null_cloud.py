@@ -210,6 +210,9 @@ class ManifoldComparator:
             "negative_fraction_difference": negative_difference, # signed difference in the proportion of negative-curvature edges; positive means the concept has more negative edges than the null, negative means fewer
             "absolute_negative_fraction_difference": abs(negative_difference), # size of the difference in negative-edge proportions, ignoring which manifold has more negative edges
             "frac_negative_difference": float(abs((c1 < 0).mean() - (c2 < 0).mean())),  # difference in fraction of negative curvatures
+
+            #need to recheck this, thresholds arn't unibersal
+
             # fraction of negative curvatures, semantic meaning:
             # 0          --> tight blob
             # 0.05-0.15  --> mostly clustered with few bridge edges
@@ -315,4 +318,12 @@ class ManifoldComparator:
             "base_seed": base_seed,
             "max_dim": max_dim,
             "metrics": results,
+        }
+    
+
+    def compare_both_nulls(self, manifold, n_nulls=30, base_seed=100, max_dim=1):
+        """Evaluate the manifold against both Gaussian null models."""
+        return {
+            "covariance_gaussian": self.compare_against_nulls(manifold, kind="covariance_gaussian", n_nulls=n_nulls, base_seed=base_seed, max_dim=max_dim),
+            "isotropic_gaussian": self.compare_against_nulls(manifold, kind="isotropic_gaussian", n_nulls=n_nulls, base_seed=base_seed + n_nulls, max_dim=max_dim),
         }
