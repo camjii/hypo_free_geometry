@@ -1,0 +1,54 @@
+# Fast local-default null-calibration benchmark.
+# Ollivier–Ricci curvature is restricted to a small subset for runtime.
+
+experiment:
+  id: null_calibration
+  question: >
+    Can the PCA / intrinsic-dimension / persistent-homology / curvature /
+    null-comparison pipeline recover known synthetic structure without false
+    positives on isotropic noise?
+  hypothesis: >
+    Isotropic Gaussian rejects neither null; spiked Gaussian rejects the
+    isotropic null but usually not the covariance null; circle recovers H1 at
+    low noise; separated clusters recover H0; line / Swiss roll / Y-tree are not
+    treated as unstructured merely for lacking H1.
+  command: python null_calibration.py --config null_calibration.yaml
+
+sample_size: 36
+ambient_dim: 12
+noise_levels: [0.0, 0.05, 0.15]
+seeds: [0, 1]
+# Monte Carlo p-values have minimum 1/(n_nulls+1); need n_nulls >= 19 for alpha=0.05.
+n_nulls: 19
+null_base_seed: 100
+eps_density: 0.10
+variance_threshold: 0.95
+significance_alpha: 0.05
+parallel_analysis_draws: 20
+# Deployable default used for the PCA-preservation overall points (oracle is diagnostic only).
+production_pca_mode: variance_95
+
+pca_modes:
+  - none
+  - variance_95
+  - parallel_analysis
+  - oracle
+
+datasets:
+  - isotropic_gaussian
+  - spiked_gaussian
+  - line
+  - two_clusters
+  - circle
+  - swiss_roll
+  - y_tree
+
+curvature:
+  # Expensive; keep tiny. Skipped cells are recorded as missing (NaN), not zero.
+  enabled_datasets: [circle, y_tree]
+  enabled_seeds: [0]
+  enabled_noise_levels: [0.0]
+  enabled_pca_modes: [oracle]
+  n_nulls: 5
+
+output_dir: outputs/null_calibration
