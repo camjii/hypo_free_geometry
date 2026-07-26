@@ -1,0 +1,18 @@
+transformer_lens
+networkx
+# 0.3.1: last version that treats networkit as optional -- 0.4+ hard-imports it,
+# and networkit has no macOS arm64 / py3.9 wheel (source build needs libomp).
+# Install with --no-deps to keep pip from building networkit anyway.
+GraphRicciCurvature==0.3.1
+cvxpy
+ecos  # GraphRicciCurvature 0.3.1 hardcodes the ECOS_BB solver
+pot
+python-louvain
+numpy
+torch
+scipy
+scikit-learn
+scikit-dimension  # imported as skdim
+ripser
+persim
+matplotlib
