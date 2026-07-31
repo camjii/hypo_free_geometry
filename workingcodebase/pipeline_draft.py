@@ -83,7 +83,7 @@ class Pipeline():
             # .float(): numpy has no bfloat16, so cast up before .numpy()
             activations_dict[layer] = torch.stack(activations_dict[layer]).detach().cpu().float().numpy() #compacts each layer's activations for all prompts into a single tensor and converts to numpy
 
-        return activations_dict #Dict: {"layer_{layer number}": [single tensor of final activations for each prompt]}
+        return activations_dict 
 
 
     def reduce_pca(self, final_activations, var_threshold=0.95): #returns list of pca vectors for 95% variance

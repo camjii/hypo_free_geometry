@@ -51,3 +51,4 @@ class ManifoldComparator:
             "curvature": self.curvature_difference(m1, m2),     # measures difference in curvature features
         }
     
+
