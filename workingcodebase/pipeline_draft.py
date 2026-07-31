@@ -69,21 +69,21 @@ class Pipeline():
         del hf_model  # free the HF copy once transformer_lens has converted it
         self.pos_prompts = pos_prompts
 
-    def collect_activations(self):
+    def collect_activations(self): #returns a dict filled with matrices of final-token activations for each layer, for each prompt
         '''Final-token resid_post activations for every layer: {layer_name: [n, d]}.'''
-        activations_dict = {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)}
+        activations_dict = {f'layer_{l + 1}':[] for l in range(self.model.cfg.n_layers)} #Dict: {"layer_{layer number}": [final activations for each prompt]}
 
-        for prompt in self.pos_prompts:
+        for prompt in self.pos_prompts: #loops through each prompt
             with torch.no_grad():
                 _, cache = self.model.run_with_cache(prompt)
                 for l in range(self.model.cfg.n_layers):
-                    activations_dict[f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :])
+                    activations_dict[f'layer_{l+1}'].append(cache['resid_post', l][0, -1, :]) #adds the final token's activation for each layer for current prompt to the dict
 
         for layer, _ in activations_dict.items():
             # .float(): numpy has no bfloat16, so cast up before .numpy()
-            activations_dict[layer] = torch.stack(activations_dict[layer]).detach().cpu().float().numpy()
+            activations_dict[layer] = torch.stack(activations_dict[layer]).detach().cpu().float().numpy() #compacts each layer's activations for all prompts into a single tensor and converts to numpy
 
-        return activations_dict
+        return activations_dict #Dict: {"layer_{layer number}": [single tensor of final activations for each prompt]}
 
     def plot_layer_grid(self, activations_dict, point_labels=None, path='layer_grid.png'):
         '''
@@ -98,21 +98,21 @@ class Pipeline():
         n_layers = len(activations_dict)
         cols = 6
         rows = int(np.ceil(n_layers / cols))
-        fig, axes = plt.subplots(rows, cols, figsize=(3.2 * cols, 3.2 * rows))
+        fig, axes = plt.subplots(rows, cols, figsize=(3.2 * cols, 3.2 * rows)) #For gemma creates a grid of 6 columns and 5 rows of empty plots
 
         scores = {}
-        for ax, (layer, act) in zip(np.ravel(axes), activations_dict.items()):
-            X = PCA(n_components=2).fit_transform(act)
+        for ax, (layer, act) in zip(np.ravel(axes), activations_dict.items()): #loops through each layer and its activations, and the corresponding empty subplot axis
+            X = PCA(n_components=2).fit_transform(act) #X = activations projected into 2D PCA space (automatically centered around origin)
 
-            r = np.linalg.norm(X, axis=1)          # PCA output is centered
-            cv = float(r.std() / r.mean())
+            r = np.linalg.norm(X, axis=1)          # r = list of distances of each point from the origin
+            cv = float(r.std() / r.mean()) #variation of distances / average points distance from origin (0 for perfect circle, larger as the shape degrades toward a blob or a line)
 
-            angles = np.arctan2(X[:, 1], X[:, 0])
-            walk = list(np.argsort(angles))         # visit order around the centroid
-            n_pts = len(walk)
-            cyclic_ok = any(walk == [(s + k * d) % n_pts for k in range(n_pts)]
-                            for s in range(n_pts) for d in (1, -1))
-            scores[layer] = {'radial_cv': cv, 'cyclic_order': cyclic_ok}
+            angles = np.arctan2(X[:, 1], X[:, 0]) #angles relative to first pca (-pi, pi]
+            walk = list(np.argsort(angles)) # orders each point and their labels by their angle relative to the first pca walk = array of indices of angles sorted
+            n_pts = len(walk) #number of points
+            cyclic_ok = any(walk == [(s + k * d) % n_pts for k in range(n_pts)] #true if the points are in cyclic order, false otherwise
+                            for s in range(n_pts) for d in (1, -1)) #compares to walk because walk is the sorted order of angles, and the cyclic order is a rotation of that order (either clockwise or counterclockwise)
+            scores[layer] = {'radial_cv': cv, 'cyclic_order': cyclic_ok} #scores each layer by how circular the points are (radial_cv) and whether they are in cyclic order (cyclic_order)
 
             ax.scatter(X[:, 0], X[:, 1], s=18)
             if point_labels is not None:
@@ -157,22 +157,22 @@ class Pipeline():
 
             # topology is [H0, H1] bottleneck vs null; H1 (loop structure) is the
             # signal layer selection previously scored on when max_dim defaulted to 1.
-            h1_score = tm.topology[1]
+            h1_score = tm.topology[1] #scoring based off loop structure bottleneck distance
             if h1_score > best_score:
-                best_score, best_layer = h1_score, layer
+                best_score, best_layer = h1_score, layer #sorts by the layer with the strongest topology-vs-null signal (highest H1 bottleneck score) (circle)
 
         print(f'Layer with the strongest topology-vs-null signal is {best_layer} (topology={best_score:.4f})')
 
         return best_layer, activations_dict[best_layer], scores
 
-    def reduce_pca(self, contrastive_diff, var_threshold=0.95):
+    def reduce_pca(self, final_activations, var_threshold=0.95): #returns list of pca vectors for 95% variance
         #Analysis reduction: keep enough components to capture the concept.
-        X = contrastive_diff.detach().cpu().numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
-        pca = PCA(n_components=min(X.shape))
-        full = pca.fit_transform(X)
-        m = int(np.searchsorted(np.cumsum(pca.explained_variance_ratio_), var_threshold)) + 1
+        X = final_activations.detach().cpu().numpy() if isinstance(final_activations, torch.Tensor) else final_activations #ensures final_activations is a numpy array
+        pca = PCA(n_components=min(X.shape)) #cap on how many components to keep (min of number of points and number of dimensions) (if prompts > 2304 then PCA will only keep 2304 components)
+        full = pca.fit_transform(X) #all prompt activations projected into PCA space [n_prompts, n_components] by decreasing variance for each component
+        m = int(np.searchsorted(np.cumsum(pca.explained_variance_ratio_), var_threshold)) + 1 #number of components to keep (m) such that the cumulative variance explained by the first m components is at least var_threshold (default 0.95)
         print(f'PCA: keeping m={m} components ({var_threshold*100:.0f}% variance)')
-        return full[:, :m]                            # m vectors fed into ripser/curvature
+        return full[:, :m] #first m pcas that capture at least var_threshold variance
 
     def plot_pca(self, opt_pos_activations):
         #Visualization only: 2-D projection
@@ -190,21 +190,17 @@ class Pipeline():
 
         return projected
 
-    def get_intrinsic_dim(self, contrastive_diff):
+    def get_intrinsic_dim(self, contrastive_diff): #returns ID using TwoNN
         X = contrastive_diff.numpy() if isinstance(contrastive_diff, torch.Tensor) else contrastive_diff
         d = skdim.id.TwoNN().fit(X).dimension_
         print(f'Intrinsic dimension (TwoNN): {d:.2f}')
-        return d #returns ID using TwoNN
+        return d 
 
     def create_persistence_diagram(self, projected):   #persistent homology from (eps = 1 to inf)
         persist_diagram = ripser(projected, maxdim = 1, distance_matrix=False, do_cocycles = False, n_perm = None )
-        return persist_diagram
+        return persist_diagram #persistence diagram of the projected points, showing the birth and death of topological features as epsilon increases
 
-    def create_persistence_vector(self,persist_diagram):
-        #use persim.PersistenceImager
-        pass
-
-    def create_epsilon_graph(self,projected, eps):
+    def create_epsilon_graph(self,projected, eps): #nxgraph with the edges for a specified epsilon value
         graph = radius_neighbors_graph(projected,radius = eps,mode = 'distance', metric='euclidean') #nxn matrix of weights that connect edges
         '''
         mode = 'distance' ensures that the graph is not binary (when all distances are 1.0)
@@ -212,9 +208,9 @@ class Pipeline():
 
         graph = nx.Graph(graph)
 
-        return graph
+        return graph 
 
-    def compute_ollivier_ricci(self, graph):
+    def compute_ollivier_ricci(self, graph):  #returns {'graph': networkx graph with curvature values, 'mean_curvature': mean curvature(double), 'raw_values': list of curvature values for each edge in the graph}
         orc = OllivierRicci(graph, alpha = 0.5, proc = 1, verbose = 'ERROR')
         orc_curv = orc.compute_ricci_curvature()
 
