@@ -95,9 +95,9 @@ class Pipeline():
         print(f'PCA: keeping m={m} components ({var_threshold*100:.0f}% variance)')
         return full[:, :m] #first m pcas that capture at least var_threshold variance
 
-    def plot_pca(self, opt_pos_activations):
+    def plot_pca_2D(self, final_activations): #plots 2D PCA of final activations
         #Visualization only: 2-D projection
-        X = opt_pos_activations.detach().cpu().numpy() if isinstance(opt_pos_activations, torch.Tensor) else opt_pos_activations
+        X = final_activations.detach().cpu().numpy() if isinstance(final_activations, torch.Tensor) else final_activations
         projected = PCA(n_components=2).fit_transform(X)
 
         plt.figure()
@@ -105,6 +105,21 @@ class Pipeline():
         plt.xlabel('PC1')
         plt.ylabel('PC2')
         plt.title('PCA of layer activations')
+        plt.savefig('pca_projection.png', dpi=150, bbox_inches='tight')
+        print('Saved PCA plot to pca_projection.png')
+        plt.show()
+
+    def plot_pca_3D(self, final_activations): #plots 3D PCA of final activations
+        #Visualization only: 3-D projection
+        X = final_activations.detach().cpu().numpy() if isinstance(final_activations, torch.Tensor) else final_activations
+        projected = PCA(n_components=3).fit_transform(X)
+
+        plt.figure()
+        plt.scatter(projected[:, 0], projected[:, 1], projected[:, 2])
+        plt.xlabel('PC1')
+        plt.ylabel('PC2')
+        plt.zlabel('PC3')
+        plt.title('3D PCA of layer activations')
         plt.savefig('pca_projection.png', dpi=150, bbox_inches='tight')
         print('Saved PCA plot to pca_projection.png')
         plt.show()
