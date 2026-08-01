@@ -1,0 +1,255 @@
+{
+  "years": {
+    "n_points": 17,
+    "cyclic": false,
+    "dimension": 1.2170763769331903,
+    "topology": {
+      "H0_bottleneck": 0.3496886392434438,
+      "H1_bottleneck": 0.04388877749443054,
+      "min_bottleneck": 0.04388877749443054
+    },
+    "curvature": -0.003363676904547326
+  },
+  "log_numbers": {
+    "n_points": 7,
+    "cyclic": false,
+    "dimension": 5.651231169854648,
+    "topology": {
+      "H0_bottleneck": 0.1653193235397339,
+      "H1_bottleneck": 0.02935527761777242,
+      "min_bottleneck": 0.02935527761777242
+    },
+    "curvature": 0.023137610314548456
+  },
+  "planets": {
+    "n_points": 8,
+    "cyclic": false,
+    "dimension": 14.266458108112225,
+    "topology": {
+      "H0_bottleneck": 0.38184666633605957,
+      "H1_bottleneck": 0.0,
+      "min_bottleneck": 0.0
+    },
+    "curvature": -0.05995200386599655
+  },
+  "chess_pieces": {
+    "n_points": 6,
+    "cyclic": false,
+    "dimension": 0.6908928905127042,
+    "topology": {
+      "H0_bottleneck": 0.43526512384414673,
+      "H1_bottleneck": 0.0,
+      "min_bottleneck": 0.0
+    },
+    "curvature": -0.010203847808325733
+  },
+  "days": {
+    "n_points": 7,
+    "cyclic": true,
+    "dimension": 5.963256241434408,
+    "topology": {
+      "H0_bottleneck": 0.3677199085553487,
+      "H1_bottleneck": 0.03976449370384216,
+      "min_bottleneck": 0.03976449370384216
+    },
+    "curvature": -0.07199366738947738
+  },
+  "months": {
+    "n_points": 12,
+    "cyclic": true,
+    "dimension": 8.898836521439042,
+    "topology": {
+      "H0_bottleneck": 0.27758388717969257,
+      "H1_bottleneck": 0.028348803520202637,
+      "min_bottleneck": 0.028348803520202637
+    },
+    "curvature": -0.019108335121842776
+  },
+  "colors": {
+    "n_points": 12,
+    "cyclic": true,
+    "dimension": 17.615657549724418,
+    "topology": {
+      "H0_bottleneck": 0.32898861169815063,
+      "H1_bottleneck": 0.019514739513397217,
+      "min_bottleneck": 0.019514739513397217
+    },
+    "curvature": -0.03657159342323351
+  },
+  "emotions": {
+    "n_points": 12,
+    "cyclic": true,
+    "dimension": 7.359700125372079,
+    "topology": {
+      "H0_bottleneck": 0.3355935315291087,
+      "H1_bottleneck": 0.018146783113479614,
+      "min_bottleneck": 0.018146783113479614
+    },
+    "curvature": -0.03908584902146107
+  },
+  "notes": {
+    "n_points": 12,
+    "cyclic": true,
+    "dimension": 4.574907815269203,
+    "topology": {
+      "H0_bottleneck": 0.42783334851264954,
+      "H1_bottleneck": 0.015006912251313528,
+      "min_bottleneck": 0.015006912251313528
+    },
+    "curvature": -0.03471718844633075
+  },
+  "fifths": {
+    "n_points": 12,
+    "cyclic": true,
+    "dimension": 5.036577991271795,
+    "topology": {
+      "H0_bottleneck": 0.37451175848642987,
+      "H1_bottleneck": 0.01168927550315857,
+      "min_bottleneck": 0.01168927550315857
+    },
+    "curvature": -0.04452010563959168
+  },
+  "hours": {
+    "n_points": 24,
+    "cyclic": true,
+    "dimension": 1.0906135321068098,
+    "topology": {
+      "H0_bottleneck": 0.4278949499130249,
+      "H1_bottleneck": 0.01967194676399231,
+      "min_bottleneck": 0.01967194676399231
+    },
+    "curvature": -0.017784193364367793
+  },
+  "compass": {
+    "n_points": 8,
+    "cyclic": true,
+    "dimension": 1.9939022742675536,
+    "topology": {
+      "H0_bottleneck": 0.2712637583414714,
+      "H1_bottleneck": 0.05054160952568054,
+      "min_bottleneck": 0.05054160952568054
+    },
+    "curvature": -0.057917121090106445
+  },
+  "seasons": {
+    "n_points": 4,
+    "cyclic": true,
+    "dimension": 13.431857772864946,
+    "topology": {
+      "H0_bottleneck": 0.4653085072835286,
+      "H1_bottleneck": 0.0,
+      "min_bottleneck": 0.0
+    },
+    "curvature": 0.0
+  },
+  "vowels": {
+    "n_points": 8,
+    "cyclic": true,
+    "dimension": 5.78949059135964,
+    "topology": {
+      "H0_bottleneck": 0.2629011670748393,
+      "H1_bottleneck": 0.03289145231246948,
+      "min_bottleneck": 0.03289145231246948
+    },
+    "curvature": -0.03207810678198356
+  },
+  "taxonomy": {
+    "n_points": 13,
+    "cyclic": false,
+    "dimension": 7.95644596403175,
+    "topology": {
+      "H0_bottleneck": 0.2870355447133382,
+      "H1_bottleneck": 0.03263127307097117,
+      "min_bottleneck": 0.03263127307097117
+    },
+    "curvature": -0.025901105787717805
+  },
+  "kinship": {
+    "n_points": 15,
+    "cyclic": false,
+    "dimension": 6.569531070943325,
+    "topology": {
+      "H0_bottleneck": 0.3139201800028483,
+      "H1_bottleneck": 0.07223686575889587,
+      "min_bottleneck": 0.07223686575889587
+    },
+    "curvature": -0.03756866334027543
+  },
+  "chess": {
+    "n_points": 64,
+    "cyclic": false,
+    "dimension": 2.2743355117615707,
+    "topology": {
+      "H0_bottleneck": 0.1087932288646698,
+      "H1_bottleneck": 0.08386477828025818,
+      "min_bottleneck": 0.08386477828025818
+    },
+    "curvature": -0.00976797876029316
+  },
+  "us_cities": {
+    "n_points": 20,
+    "cyclic": false,
+    "dimension": 17.348262700985746,
+    "topology": {
+      "H0_bottleneck": 0.2742667992909749,
+      "H1_bottleneck": 0.041915168364842735,
+      "min_bottleneck": 0.041915168364842735
+    },
+    "curvature": -0.01736319363138574
+  },
+  "global_cities": {
+    "n_points": 16,
+    "cyclic": false,
+    "dimension": 29.999640786975874,
+    "topology": {
+      "H0_bottleneck": 0.2967472771803538,
+      "H1_bottleneck": 0.03245090444882711,
+      "min_bottleneck": 0.03245090444882711
+    },
+    "curvature": 0.006954987157501838
+  },
+  "amino_acids": {
+    "n_points": 20,
+    "cyclic": false,
+    "dimension": 11.11137547767423,
+    "topology": {
+      "H0_bottleneck": 0.27978406349817914,
+      "H1_bottleneck": 0.03622544805208842,
+      "min_bottleneck": 0.03622544805208842
+    },
+    "curvature": -0.011563097211392393
+  },
+  "political": {
+    "n_points": 12,
+    "cyclic": false,
+    "dimension": 28.409330654367896,
+    "topology": {
+      "H0_bottleneck": 0.33499987920125324,
+      "H1_bottleneck": 0.01720471183458964,
+      "min_bottleneck": 0.01720471183458964
+    },
+    "curvature": 0.00980372144271612
+  },
+  "directions_3d": {
+    "n_points": 8,
+    "cyclic": false,
+    "dimension": 2.0658244437170583,
+    "topology": {
+      "H0_bottleneck": 0.36829598744710285,
+      "H1_bottleneck": 0.01151171326637268,
+      "min_bottleneck": 0.01151171326637268
+    },
+    "curvature": 0.034473918896885225
+  },
+  "elements": {
+    "n_points": 36,
+    "cyclic": false,
+    "dimension": 13.723488198082272,
+    "topology": {
+      "H0_bottleneck": 0.20576119422912598,
+      "H1_bottleneck": 0.02998143434524536,
+      "min_bottleneck": 0.02998143434524536
+    },
+    "curvature": -0.0026122997144326955
+  }
+}
