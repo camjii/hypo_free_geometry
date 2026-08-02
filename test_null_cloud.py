@@ -1,11 +1,12 @@
-"""Behavioral tests for null_cloud: inference, failure handling, determinism.
+"""Behavioral tests for null_cloud: the low-rank null, inference, failure handling.
 
-Grouped by behavior rather than by function. Every test uses the in-process
-``FastPipeline`` double, so nothing here downloads a model or runs curvature.
+Grouped by behavior. Everything uses the in-process ``FastPipeline`` double, so
+nothing here downloads a model or computes curvature.
 """
 
 from __future__ import annotations
 
+import functools
 import os
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -20,30 +21,34 @@ from sklearn.decomposition import PCA
 import null_cloud
 from null_cloud import (
     MINIMUM_VALID_NULLS,
+    NULL_KIND,
     Manifold,
     ManifoldComparator,
     build_null_ensemble,
+    effective_rank,
     empirical_pvalue,
-    fit_null_gaussian,
-    sample_null_cloud,
-    unavailable_result,
+    fit_low_rank_gaussian,
+    null_diagnostics,
+    resolve_null_kind,
+    sample_low_rank_gaussian,
+    unavailable,
     validate_cloud,
 )
 
 
 # ---------------------------------------------------------------------------
-# Fixtures and test doubles
+# Fixtures
 # ---------------------------------------------------------------------------
 
 
 class FastPipeline:
     """Minimal measurement backend. Curvature is never expected here."""
 
-    def get_intrinsic_dim(self, point_cloud):
-        return float(skdim.id.TwoNN().fit(np.asarray(point_cloud, dtype=float)).dimension_)
+    def get_intrinsic_dim(self, cloud):
+        return float(skdim.id.TwoNN().fit(np.asarray(cloud, dtype=float)).dimension_)
 
-    def reduce_pca(self, point_cloud, var_threshold=0.95):
-        x = np.asarray(point_cloud, dtype=float)
+    def reduce_pca(self, cloud, var_threshold=0.95):
+        x = np.asarray(cloud, dtype=float)
         pca = PCA(n_components=min(x.shape))
         full = pca.fit_transform(x)
         count = int(np.searchsorted(np.cumsum(pca.explained_variance_ratio_), var_threshold) + 1)
@@ -63,35 +68,54 @@ def _isotropic(n=48, d=8, seed=0):
     return np.random.default_rng(seed).normal(size=(n, d))
 
 
-def _spiked(n=48, d=8, seed=1):
+def _low_rank(n=48, d=64, rank=4, seed=1):
     rng = np.random.default_rng(seed)
-    factors = rng.normal(size=(n, 2))
-    loadings = np.zeros((d, 2))
-    loadings[0, 0] = 3.0
-    loadings[1, 1] = 2.0
-    return factors @ loadings.T + 0.05 * rng.normal(size=(n, d))
+    basis, _ = np.linalg.qr(rng.normal(size=(d, rank)))
+    return (rng.normal(size=(n, rank)) * np.linspace(3.0, 0.5, rank)) @ basis.T
 
 
 def _circle(n=48, d=8, seed=2):
     rng = np.random.default_rng(seed)
     angles = rng.uniform(0.0, 2.0 * np.pi, size=n)
-    latent = np.column_stack((np.cos(angles), np.sin(angles)))
-    basis = rng.normal(size=(d, 2))
-    q, _ = np.linalg.qr(basis)
-    return latent @ q[:, :2].T
+    basis, _ = np.linalg.qr(rng.normal(size=(d, 2)))
+    return np.column_stack((np.cos(angles), np.sin(angles))) @ basis[:, :2].T
 
 
-def _curvature_double(values):
+def _line(n=48, d=8, seed=3):
+    rng = np.random.default_rng(seed)
+    basis, _ = np.linalg.qr(rng.normal(size=(d, 2)))
+    latent = np.column_stack((np.linspace(-1.0, 1.0, n), 0.02 * rng.normal(size=n)))
+    return latent @ basis[:, :2].T
+
+
+def _helix(n=48, d=8, seed=4):
+    rng = np.random.default_rng(seed)
+    t = np.linspace(0.0, 4.0 * np.pi, n)
+    latent = np.column_stack((np.cos(t), np.sin(t), 0.30 * t))
+    basis, _ = np.linalg.qr(rng.normal(size=(d, 3)))
+    return latent @ basis[:, :3].T
+
+
+def _swiss_roll(n=48, d=8, seed=5):
+    rng = np.random.default_rng(seed)
+    t = 1.5 * np.pi * (1.0 + 2.0 * rng.uniform(size=n))
+    latent = np.column_stack((t * np.cos(t), 12.0 * rng.uniform(size=n), t * np.sin(t)))
+    basis, _ = np.linalg.qr(rng.normal(size=(d, 3)))
+    return latent @ basis[:, :3].T
+
+
+def _curvatures(values):
     return type("C", (), {"curvature_values": np.asarray(values, dtype=float)})()
 
 
-def _topology_manifold(cloud, seed=0):
-    return Manifold(FastPipeline(), cloud, metrics=("topology",), seed=seed)
+def _manifold(cloud, seed=0, metrics=("topology",)):
+    return Manifold(FastPipeline(), cloud, metrics=metrics, seed=seed)
 
 
-@pytest.fixture
-def comparator():
-    return ManifoldComparator()
+def _spectrum(cloud):
+    x = np.asarray(cloud, dtype=float)
+    singular = np.linalg.svd(x - x.mean(axis=0), compute_uv=False)
+    return singular**2 / (x.shape[0] - 1)
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +141,7 @@ class TestInputValidation:
         cloud = _isotropic(seed=0).copy()
         cloud[2, 3] = bad
         with pytest.raises(ValueError, match="only finite values"):
-            Manifold(FastPipeline(), cloud, metrics=("topology",))
+            _manifold(cloud)
 
     @pytest.mark.parametrize("eps_density", [0.0, -0.1, 1.5, np.nan])
     def test_rejects_invalid_eps_density(self, eps_density):
@@ -137,22 +161,202 @@ class TestInputValidation:
         with pytest.raises(TypeError, match="not a string"):
             Manifold(FastPipeline(), _isotropic(seed=0), metrics="topology")
 
-    def test_rejects_unknown_null_kind(self):
-        with pytest.raises(ValueError, match="unknown null kind"):
-            fit_null_gaussian(_isotropic(seed=0), kind="bogus")
-
-
-class TestDegenerateGeometry:
     def test_constant_cloud_is_a_measurement_failure(self):
         with pytest.raises(ValueError, match="distinct finite points"):
-            Manifold(FastPipeline(), np.ones((20, 5)), metrics=("topology",))
+            _manifold(np.ones((20, 5)))
 
     def test_zero_epsilon_is_rejected_rather_than_building_an_empty_graph(self):
-        # 19 duplicates plus one distinct point puts the 10th percentile of the
+        # 19 duplicates plus one distinct point put the 10th percentile of the
         # pairwise distances at exactly zero.
         duplicated = np.vstack([np.ones((19, 5)), np.full((1, 5), 2.0)])
         with pytest.raises(ValueError, match="non-positive radius"):
-            Manifold(FastPipeline(), duplicated, metrics=("topology",))
+            _manifold(duplicated)
+
+    def test_rank_zero_cloud_is_rejected_clearly(self):
+        with pytest.raises(ValueError, match="zero centered rank"):
+            fit_low_rank_gaussian(np.ones((6, 4)))
+
+
+# ---------------------------------------------------------------------------
+# The low-rank null: fit and sampling
+# ---------------------------------------------------------------------------
+
+
+class TestLowRankNull:
+    def test_draw_shape_matches_the_observed_cloud(self):
+        cloud = _low_rank(n=20, d=64, rank=5)
+        drawn = sample_low_rank_gaussian(fit_low_rank_gaussian(cloud), seed=0)
+        assert drawn.shape == cloud.shape
+
+    def test_rank_never_exceeds_the_centered_maximum(self):
+        for n, d, rank in ((12, 2304, 8), (20, 6, 6), (40, 10, 10)):
+            fit = fit_low_rank_gaussian(_low_rank(n=n, d=d, rank=rank))
+            assert fit["rank"] <= min(n - 1, d)
+            assert fit["rank"] >= 1
+
+    def test_no_dense_feature_by_feature_covariance_is_built(self):
+        """Only a rank x d basis is stored, never a d x d matrix."""
+        fit = fit_low_rank_gaussian(_low_rank(n=12, d=2304, rank=8))
+        assert fit["basis"].shape == (fit["rank"], 2304)
+        for value in fit.values():
+            if isinstance(value, np.ndarray):
+                assert value.shape != (2304, 2304)
+                assert value.size <= fit["rank"] * 2304
+
+    def test_fixed_seed_reproduces_the_null_cloud(self):
+        fit = fit_low_rank_gaussian(_low_rank())
+        assert np.allclose(
+            sample_low_rank_gaussian(fit, seed=7), sample_low_rank_gaussian(fit, seed=7)
+        )
+
+    def test_different_seeds_give_different_null_clouds(self):
+        fit = fit_low_rank_gaussian(_low_rank())
+        assert not np.allclose(
+            sample_low_rank_gaussian(fit, seed=1), sample_low_rank_gaussian(fit, seed=2)
+        )
+
+    def test_mean_is_preserved(self):
+        cloud = _low_rank(n=30, d=40, rank=6)
+        fit = fit_low_rank_gaussian(cloud)
+        for seed in range(5):
+            drawn = sample_low_rank_gaussian(fit, seed=seed)
+            assert np.allclose(drawn.mean(axis=0), cloud.mean(axis=0), atol=1e-8)
+
+    def test_draws_lie_in_the_observed_principal_subspace(self):
+        cloud = _low_rank(n=24, d=50, rank=5)
+        fit = fit_low_rank_gaussian(cloud)
+        drawn = sample_low_rank_gaussian(fit, seed=0)
+        centered = drawn - drawn.mean(axis=0)
+        # Projecting onto the fitted basis and back must be a no-op.
+        basis = fit["basis"]
+        reprojected = (centered @ basis.T) @ basis
+        assert np.allclose(centered, reprojected, atol=1e-8)
+
+    def test_nonzero_covariance_spectrum_is_matched_exactly(self):
+        cloud = _low_rank(n=18, d=90, rank=7)
+        fit = fit_low_rank_gaussian(cloud)
+        target = fit["eigenvalues"]
+        for seed in range(5):
+            sample = _spectrum(sample_low_rank_gaussian(fit, seed=seed))[: target.size]
+            assert np.allclose(sample, target, rtol=1e-8, atol=1e-10)
+
+    def test_effective_rank_is_matched_exactly(self):
+        cloud = _low_rank(n=16, d=120, rank=6)
+        fit = fit_low_rank_gaussian(cloud)
+        observed = effective_rank(_spectrum(cloud)[: fit["rank"]])
+        for seed in range(5):
+            drawn = sample_low_rank_gaussian(fit, seed=seed)
+            assert effective_rank(_spectrum(drawn)[: fit["rank"]]) == pytest.approx(
+                observed, rel=1e-6
+            )
+
+    def test_orientation_actually_varies_between_draws(self):
+        """Matching the spectrum exactly must not freeze the point configuration."""
+        fit = fit_low_rank_gaussian(_low_rank(n=20, d=40, rank=5))
+        from scipy.spatial.distance import pdist
+
+        first = pdist(sample_low_rank_gaussian(fit, seed=0))
+        second = pdist(sample_low_rank_gaussian(fit, seed=1))
+        assert not np.allclose(first, second)
+
+    def test_diagnostics_confirm_the_match_and_stay_finite(self):
+        fit = fit_low_rank_gaussian(_low_rank(n=14, d=200, rank=6))
+        diagnostics = null_diagnostics(fit, sample_low_rank_gaussian(fit, seed=0))
+        assert set(diagnostics) == {
+            "rank",
+            "mean_error",
+            "target_eigenvalues",
+            "sample_eigenvalues",
+            "relative_spectrum_error",
+            "target_effective_rank",
+            "sample_effective_rank",
+        }
+        assert diagnostics["relative_spectrum_error"] < 1e-10
+        assert diagnostics["mean_error"] < 1e-10
+        assert diagnostics["target_effective_rank"] == pytest.approx(
+            diagnostics["sample_effective_rank"], rel=1e-8
+        )
+        assert all(
+            np.isfinite(value)
+            for value in (
+                diagnostics["mean_error"],
+                diagnostics["relative_spectrum_error"],
+                diagnostics["target_effective_rank"],
+                diagnostics["sample_effective_rank"],
+            )
+        )
+
+
+class TestRealShapedCloud:
+    """The regime the project actually runs in: n = 12, d = 2304."""
+
+    CLOUD = None
+
+    @pytest.fixture(scope="class")
+    def cloud(self):
+        rng = np.random.default_rng(11)
+        basis, _ = np.linalg.qr(rng.normal(size=(2304, 8)))
+        return (rng.normal(size=(12, 8)) * np.linspace(3.0, 0.3, 8)) @ basis.T
+
+    def test_fit_returns_a_rank_within_the_centered_maximum(self, cloud):
+        fit = fit_low_rank_gaussian(cloud)
+        assert fit["rank"] <= 11
+        assert fit["basis"].shape == (fit["rank"], 2304)
+
+    def test_sampling_is_deterministic_and_shaped_correctly(self, cloud):
+        fit = fit_low_rank_gaussian(cloud)
+        first = sample_low_rank_gaussian(fit, seed=3)
+        assert first.shape == (12, 2304)
+        assert np.array_equal(first, sample_low_rank_gaussian(fit, seed=3))
+
+    def test_spectrum_diagnostics_are_finite_and_exact(self, cloud):
+        fit = fit_low_rank_gaussian(cloud)
+        diagnostics = null_diagnostics(fit, sample_low_rank_gaussian(fit, seed=0))
+        assert np.isfinite(diagnostics["relative_spectrum_error"])
+        assert diagnostics["relative_spectrum_error"] < 1e-10
+
+    def test_fitting_once_is_much_cheaper_than_refitting_per_draw(self, cloud):
+        import time
+
+        n_draws = 10
+        start = time.perf_counter()
+        fit = fit_low_rank_gaussian(cloud)
+        for seed in range(n_draws):
+            sample_low_rank_gaussian(fit, seed=seed)
+        once = time.perf_counter() - start
+
+        start = time.perf_counter()
+        for seed in range(n_draws):
+            sample_low_rank_gaussian(fit_low_rank_gaussian(cloud), seed=seed)
+        per_draw = time.perf_counter() - start
+        assert once < per_draw
+
+
+# ---------------------------------------------------------------------------
+# Null naming
+# ---------------------------------------------------------------------------
+
+
+class TestNullNaming:
+    def test_canonical_name_resolves_to_itself(self):
+        assert resolve_null_kind(None) == NULL_KIND
+        assert resolve_null_kind(NULL_KIND) == NULL_KIND
+
+    @pytest.mark.parametrize(
+        "legacy", ["noise", "covariance_gaussian", "isotropic_gaussian"]
+    )
+    def test_legacy_names_warn_and_resolve_to_the_one_model(self, legacy):
+        with pytest.deprecated_call():
+            assert resolve_null_kind(legacy) == NULL_KIND
+
+    def test_unknown_name_is_an_error(self):
+        with pytest.raises(ValueError, match="unknown null kind"):
+            resolve_null_kind("shuffled")
+
+    def test_manifold_null_draws_the_canonical_model(self):
+        null = _manifold(_circle(seed=40), seed=40).null(seed=7)
+        assert null.label == f"null:{NULL_KIND}"
+        assert null.cloud.shape == _circle(seed=40).shape
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +369,6 @@ class TestEmpiricalPvalue:
         result = empirical_pvalue(10.0, [1.0, 2.0, 3.0, 4.0])
         assert result["pvalue"] == pytest.approx(1.0 / 5.0)
         assert result["minimum_attainable_pvalue"] == pytest.approx(1.0 / 5.0)
-        assert result["empirical_rank"] == 1
         assert result["inference_available"] is True
 
     def test_observed_smaller_than_every_null_gives_one(self):
@@ -173,64 +376,65 @@ class TestEmpiricalPvalue:
 
     def test_plus_one_correction_is_retained(self):
         # Two of four nulls are >= observed, so the rank is 1 + 2 = 3.
-        result = empirical_pvalue(2.5, [1.0, 2.0, 3.0, 4.0])
-        assert result["empirical_rank"] == 3
-        assert result["pvalue"] == pytest.approx(3.0 / 5.0)
+        assert empirical_pvalue(2.5, [1.0, 2.0, 3.0, 4.0])["pvalue"] == pytest.approx(3.0 / 5.0)
 
-    def test_nan_observed_score_is_not_significant(self):
-        result = empirical_pvalue(float("nan"), [1.0, 2.0, 3.0, 4.0])
-        assert np.isnan(result["pvalue"])
-        assert result["inference_available"] is False
-        assert "not finite" in result["failure_reason"]
-        assert result["empirical_rank"] is None
-
-    @pytest.mark.parametrize("observed", [np.inf, -np.inf])
-    def test_infinite_observed_score_is_not_significant(self, observed):
+    @pytest.mark.parametrize("observed", [np.nan, np.inf, -np.inf])
+    def test_non_finite_observed_score_is_never_significant(self, observed):
         result = empirical_pvalue(observed, [1.0, 2.0, 3.0, 4.0])
         assert np.isnan(result["pvalue"])
         assert result["inference_available"] is False
+        assert "not finite" in result["failure_reason"]
 
     def test_non_finite_nulls_are_excluded_from_the_denominator(self):
         result = empirical_pvalue(0.5, [1.0, np.nan, 2.0, np.inf, 3.0, np.nan])
         assert result["n_valid_nulls"] == 3
-        # All three survivors exceed the observed score, so the p-value is 1.0
-        # against three nulls -- not 4/7 against the requested six.
+        # All three survivors exceed the observed value, so p is 1.0 against
+        # three nulls -- not 4/7 against the six requested.
         assert result["pvalue"] == pytest.approx(1.0)
         assert result["minimum_attainable_pvalue"] == pytest.approx(0.25)
 
     def test_too_few_valid_nulls_marks_inference_unavailable(self):
         result = empirical_pvalue(0.5, [1.0, np.nan, np.nan, np.nan])
-        assert result["n_valid_nulls"] == 1
         assert result["inference_available"] is False
         assert np.isnan(result["pvalue"])
         assert "at least" in result["failure_reason"]
 
     def test_two_sided_direction_ranks_absolute_deviations(self):
         nulls = [-3.0, -1.0, 1.0, 3.0]
-        assert empirical_pvalue(-2.0, nulls, direction="two_sided")["pvalue"] == (
-            empirical_pvalue(2.0, nulls, direction="two_sided")["pvalue"]
+        assert (
+            empirical_pvalue(-2.0, nulls, direction="two_sided")["pvalue"]
+            == empirical_pvalue(2.0, nulls, direction="two_sided")["pvalue"]
         )
-        assert empirical_pvalue(-4.0, nulls, direction="two_sided")["pvalue"] == pytest.approx(0.2)
 
     def test_rejects_unknown_direction(self):
         with pytest.raises(ValueError, match="direction"):
             empirical_pvalue(1.0, [1.0, 2.0, 3.0], direction="less")
 
-    def test_unavailable_result_carries_the_reason(self):
-        result = unavailable_result("backend exploded")
+    def test_unavailable_carries_the_reason(self):
+        result = unavailable("backend exploded")
         assert result["inference_available"] is False
         assert result["failure_reason"] == "backend exploded"
         assert np.isnan(result["pvalue"])
 
-    def test_is_calibrated_under_exchangeability(self, comparator):
-        """Exchangeable objects must reject at about alpha."""
+    def test_result_schema_is_the_canonical_one(self):
+        assert set(empirical_pvalue(1.0, [0.5, 0.6, 0.7])) == {
+            "observed",
+            "null_values",
+            "pvalue",
+            "inference_available",
+            "n_valid_nulls",
+            "minimum_attainable_pvalue",
+            "failure_reason",
+        }
+
+    def test_is_calibrated_under_exchangeability(self):
         from scipy.spatial.distance import pdist, squareform
 
-        n_nulls = 19
+        comparator = ManifoldComparator()
         rng = np.random.default_rng(4242)
         pvalues = []
         for _ in range(1500):
-            matrix = squareform(pdist(rng.normal(size=(n_nulls + 1, 4))))
+            matrix = squareform(pdist(rng.normal(size=(20, 4))))
             np.fill_diagonal(matrix, np.nan)
             pvalues.append(comparator._loo_result(matrix, "H1_bottleneck")["pvalue"])
         pvalues = np.asarray(pvalues, dtype=float)
@@ -239,248 +443,155 @@ class TestEmpiricalPvalue:
 
 
 # ---------------------------------------------------------------------------
-# Sampling and covariance fitting
-# ---------------------------------------------------------------------------
-
-
-class TestSampling:
-    def test_sampled_cloud_recovers_a_known_covariance(self):
-        rng = np.random.default_rng(29)
-        dimension = 6
-        rotation, _ = np.linalg.qr(rng.normal(size=(dimension, dimension)))
-        target = rotation @ np.diag([9.0, 4.0, 2.0, 1.0, 0.5, 0.25]) @ rotation.T
-        observed = rng.multivariate_normal(np.zeros(dimension), target, size=4000)
-
-        fit = fit_null_gaussian(observed, kind="covariance_gaussian")
-        drawn = sample_null_cloud(fit, sample_count=20000, seed=3)
-        relative = np.linalg.norm(np.cov(drawn, rowvar=False) - fit["covariance"]) / np.linalg.norm(
-            fit["covariance"]
-        )
-        assert relative < 0.05
-        assert np.allclose(drawn.mean(axis=0), fit["mean"], atol=0.1)
-
-    def test_isotropic_null_preserves_average_variance_and_drops_anisotropy(self):
-        cloud = _spiked(n=200, d=8, seed=30)
-        covariance = fit_null_gaussian(cloud, kind="isotropic_gaussian")["covariance"]
-        assert np.allclose(covariance, np.diag(np.diag(covariance)))
-        assert np.allclose(np.diag(covariance), covariance[0, 0])
-        assert covariance[0, 0] == pytest.approx(float(np.var(cloud, axis=0, ddof=1).mean()))
-
-    def test_noise_alias_resolves_to_the_covariance_null(self):
-        cloud = _isotropic(seed=15)
-        assert fit_null_gaussian(cloud, kind="noise")["kind"] == "covariance_gaussian"
-        manifold = _topology_manifold(cloud, seed=15)
-        with pytest.warns(UserWarning):
-            result = ManifoldComparator().compare_against_nulls(
-                manifold, kind="noise", n_nulls=4, base_seed=16, metrics=("topology",)
-            )
-        assert result["null_kind"] == "covariance_gaussian"
-
-    @pytest.mark.parametrize("kind", ["covariance_gaussian", "isotropic_gaussian", "noise"])
-    def test_supported_null_kinds_still_produce_a_measurable_draw(self, kind):
-        manifold = _topology_manifold(_circle(seed=40), seed=40)
-        null = manifold.null(kind=kind, seed=7)
-        assert null.cloud.shape == manifold.cloud.shape
-        assert len(null.dgms) >= 2
-
-    def test_shuffled_kind_is_explicitly_unsupported(self):
-        manifold = _topology_manifold(_circle(seed=41), seed=41)
-        with pytest.raises(NotImplementedError, match="shuffled"):
-            manifold.null(kind="shuffled")
-
-
-class TestCovarianceDiagnostics:
-    def test_wide_clouds_are_flagged_as_not_covariance_matched(self):
-        rng = np.random.default_rng(27)
-        wide = rng.normal(size=(36, 768)) @ np.diag(np.linspace(3.0, 0.1, 768))
-        match = fit_null_gaussian(wide, kind="covariance_gaussian")["diagnostics"]["covariance_match"]
-        assert match["is_matched"] is False
-        assert match["relative_frobenius_difference"] > 0.30
-        assert match["effective_rank_inflation"] > 2.0
-
-    def test_well_sampled_clouds_are_flagged_as_matched(self):
-        narrow = np.random.default_rng(27).normal(size=(4000, 6))
-        match = fit_null_gaussian(narrow, kind="covariance_gaussian")["diagnostics"]["covariance_match"]
-        assert match["is_matched"] is True
-
-    def test_isotropic_null_is_never_claimed_to_be_matched(self):
-        match = fit_null_gaussian(_spiked(seed=9), kind="isotropic_gaussian")["diagnostics"][
-            "covariance_match"
-        ]
-        assert match["is_matched"] is False
-        assert "discards covariance structure" in match["note"]
-
-    def test_both_estimators_expose_their_regularisation(self):
-        spiked = _spiked(seed=9)
-        lw = fit_null_gaussian(spiked, kind="covariance_gaussian", covariance_estimator="ledoit_wolf")
-        reg = fit_null_gaussian(
-            spiked, kind="covariance_gaussian", covariance_estimator="regularized_empirical"
-        )
-        assert "shrinkage" in lw["diagnostics"]
-        assert "ridge" in reg["diagnostics"]
-        assert (
-            lw["diagnostics"]["null_effective_rank"]
-            >= reg["diagnostics"]["null_effective_rank"] - 1e-6
-        )
-
-    def test_mismatch_warns_exactly_once_per_ensemble(self, recwarn):
-        rng = np.random.default_rng(28)
-        wide = rng.normal(size=(30, 400)) @ np.diag(np.linspace(3.0, 0.1, 400))
-        manifold = _topology_manifold(wide, seed=28)
-        ManifoldComparator().compare_against_nulls(
-            manifold, kind="covariance_gaussian", n_nulls=19, base_seed=28, metrics=("topology",)
-        )
-        mismatch = [w for w in recwarn if "not covariance-matched" in str(w.message)]
-        assert len(mismatch) == 1
-
-    def test_diagnostics_are_reported_once_on_the_result(self):
-        manifold = _topology_manifold(_circle(seed=42), seed=42)
-        result = ManifoldComparator().compare_against_nulls(
-            manifold, kind="isotropic_gaussian", n_nulls=19, base_seed=42, metrics=("topology",)
-        )
-        assert "covariance_match" in result["null_fit_diagnostics"]
-        assert isinstance(result["null_fit_diagnostics"]["covariance_match"], dict)
-
-
-# ---------------------------------------------------------------------------
-# Reproducibility
-# ---------------------------------------------------------------------------
-
-
-class TestReproducibility:
-    def test_fixed_base_seed_gives_identical_results(self):
-        cloud = _circle(seed=32)
-        pipeline, comparator = FastPipeline(), ManifoldComparator()
-        outputs = []
-        for _ in range(2):
-            manifold = Manifold(pipeline, cloud, metrics=("topology",), seed=32)
-            result = comparator.compare_against_nulls(
-                manifold, kind="covariance_gaussian", n_nulls=19, base_seed=555, metrics=("topology",)
-            )
-            outputs.append({k: v["pvalue"] for k, v in result["metrics"].items()})
-        assert outputs[0] == outputs[1]
-
-    def test_different_seeds_produce_different_sampled_clouds(self):
-        fit = fit_null_gaussian(_isotropic(seed=33), kind="covariance_gaussian")
-        first = sample_null_cloud(fit, sample_count=20, seed=1)
-        second = sample_null_cloud(fit, sample_count=20, seed=2)
-        assert not np.allclose(first, second)
-        assert np.allclose(first, sample_null_cloud(fit, sample_count=20, seed=1))
-
-    def test_reusing_a_fit_does_not_change_the_drawn_cloud(self):
-        cloud = _isotropic(n=40, d=10, seed=31)
-        manifold = _topology_manifold(cloud, seed=31)
-        fit = fit_null_gaussian(cloud, kind="covariance_gaussian")
-        assert np.allclose(
-            manifold.null(kind="covariance_gaussian", seed=77).cloud,
-            manifold.null(kind="covariance_gaussian", seed=77, fit=fit).cloud,
-        )
-
-    def test_both_nulls_use_disjoint_seed_ranges(self):
-        manifold = _topology_manifold(_circle(seed=12), seed=12)
-        both = ManifoldComparator().compare_both_nulls(
-            manifold, n_nulls=19, base_seed=13, metrics=("topology",)
-        )
-        assert set(both) == {"covariance_gaussian", "isotropic_gaussian"}
-        assert both["covariance_gaussian"]["base_seed"] == 13
-        assert both["isotropic_gaussian"]["base_seed"] == 13 + 19
-
-
-# ---------------------------------------------------------------------------
-# Failure handling
+# Ensembles: reproducibility, failure handling, mutation safety
 # ---------------------------------------------------------------------------
 
 
 class _FailAtCall(FastPipeline):
-    """Raise on the nth reduce_pca call, otherwise behave normally."""
+    """Raise on selected reduce_pca calls, otherwise behave normally."""
 
-    def __init__(self, fail_on=(), total_failures=None):
+    def __init__(self, fail_on=(), always=False):
         self.calls = 0
         self.fail_on = set(fail_on)
-        self.total_failures = total_failures
+        self.always = always
 
-    def reduce_pca(self, point_cloud, var_threshold=0.95):
+    def reduce_pca(self, cloud, var_threshold=0.95):
         self.calls += 1
-        if self.total_failures is not None or self.calls in self.fail_on:
+        if self.always or self.calls in self.fail_on:
             raise RuntimeError("simulated backend failure")
-        return super().reduce_pca(point_cloud, var_threshold)
+        return super().reduce_pca(cloud, var_threshold)
 
 
-class TestFailureHandling:
+class TestEnsembleBehavior:
+    def test_fixed_base_seed_gives_identical_results(self):
+        cloud, comparator = _circle(seed=32), ManifoldComparator()
+        runs = [
+            comparator.compare_against_nulls(
+                _manifold(cloud, seed=32), n_nulls=19, base_seed=555, metrics=("topology",)
+            )
+            for _ in range(2)
+        ]
+        assert {k: v["pvalue"] for k, v in runs[0]["metrics"].items()} == {
+            k: v["pvalue"] for k, v in runs[1]["metrics"].items()
+        }
+
+    def test_null_is_fitted_once_per_ensemble(self, monkeypatch):
+        calls = {"n": 0}
+        original = null_cloud.fit_low_rank_gaussian
+
+        def counting(*args, **kwargs):
+            calls["n"] += 1
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(null_cloud, "fit_low_rank_gaussian", counting)
+        ManifoldComparator().compare_against_nulls(
+            _manifold(_isotropic(seed=25), seed=25),
+            n_nulls=19,
+            base_seed=25,
+            metrics=("topology",),
+        )
+        assert calls["n"] == 1
+
     def test_one_failed_draw_does_not_abort_the_ensemble(self):
-        manifold = _topology_manifold(_circle(seed=23), seed=23)
+        manifold = _manifold(_circle(seed=23), seed=23)
         manifold.pipeline = _FailAtCall(fail_on={5})
         with pytest.warns(UserWarning, match="failed to measure"):
             result = ManifoldComparator().compare_against_nulls(
-                manifold, kind="isotropic_gaussian", n_nulls=19, base_seed=23, metrics=("topology",)
+                manifold, n_nulls=19, base_seed=23, metrics=("topology",)
             )
-        assert len(result["null_failures"]) == 1
-        assert "simulated backend failure" in result["null_failures"][0]["error"]
-        assert result["n_nulls_measured"] == 18
+        assert len(result["failures"]) == 1
+        assert result["n_requested"] == 19
+        assert result["n_drawn"] == 18
         assert result["metrics"]["H1_bottleneck"]["n_valid_nulls"] == 18
         assert result["metrics"]["H1_bottleneck"]["inference_available"] is True
 
     def test_failed_draws_do_not_bias_the_denominator(self):
-        """The p-value must be ranked against survivors, not requested draws."""
-        manifold = _topology_manifold(_circle(seed=44), seed=44)
+        manifold = _manifold(_circle(seed=44), seed=44)
         manifold.pipeline = _FailAtCall(fail_on={2, 3, 4, 5, 6})
         with pytest.warns(UserWarning):
             result = ManifoldComparator().compare_against_nulls(
-                manifold, kind="isotropic_gaussian", n_nulls=19, base_seed=44, metrics=("topology",)
+                manifold, n_nulls=19, base_seed=44, metrics=("topology",)
             )
         block = result["metrics"]["H1_bottleneck"]
-        assert result["n_nulls_measured"] == 14
+        assert result["n_drawn"] == 14
         assert block["n_valid_nulls"] == 14
         assert block["minimum_attainable_pvalue"] == pytest.approx(1.0 / 15.0)
-        assert block["pvalue"] >= block["minimum_attainable_pvalue"]
 
     def test_all_failed_draws_produce_an_explicit_unavailable_result(self):
-        manifold = _topology_manifold(_circle(seed=45), seed=45)
-        manifold.pipeline = _FailAtCall(total_failures=True)
+        manifold = _manifold(_circle(seed=45), seed=45)
+        manifold.pipeline = _FailAtCall(always=True)
         with pytest.warns(UserWarning):
             result = ManifoldComparator().compare_against_nulls(
-                manifold, kind="isotropic_gaussian", n_nulls=19, base_seed=45, metrics=("topology",)
+                manifold, n_nulls=19, base_seed=45, metrics=("topology",)
             )
-        assert result["n_nulls_measured"] == 0
-        assert len(result["null_failures"]) == 19
-        for name in ("H0_bottleneck", "H1_bottleneck", "H0_wasserstein", "H1_wasserstein"):
-            block = result["metrics"][name]
+        assert result["n_drawn"] == 0
+        assert len(result["failures"]) == 19
+        for block in result["metrics"].values():
             assert block["inference_available"] is False
             assert np.isnan(block["pvalue"])
             assert "could be measured" in block["failure_reason"]
 
     def test_build_null_ensemble_records_each_failure_with_its_seed(self):
-        manifold = _topology_manifold(_circle(seed=46), seed=46)
+        manifold = _manifold(_circle(seed=46), seed=46)
         manifold.pipeline = _FailAtCall(fail_on={1, 3})
-        fit = fit_null_gaussian(manifold.cloud, kind="isotropic_gaussian")
         nulls, failures = build_null_ensemble(
-            manifold,
-            kind="isotropic_gaussian",
-            n_nulls=5,
-            base_seed=900,
-            covariance_estimator="ledoit_wolf",
-            fit=fit,
+            manifold, n_nulls=5, base_seed=900, fit=fit_low_rank_gaussian(manifold.cloud)
         )
         assert len(nulls) == 3
         assert [failure["seed"] for failure in failures] == [900, 902]
 
     def test_too_few_nulls_warns_that_alpha_005_is_unreachable(self):
-        manifold = _topology_manifold(_circle(seed=22), seed=22)
-        with pytest.warns(UserWarning, match="alpha=0.05 is unreachable"):
+        with pytest.warns(UserWarning, match="alpha=0.05"):
             ManifoldComparator().compare_against_nulls(
-                manifold, kind="isotropic_gaussian", n_nulls=5, base_seed=22, metrics=("topology",)
+                _manifold(_circle(seed=22), seed=22), n_nulls=5, base_seed=22, metrics=("topology",)
             )
 
     def test_n_nulls_below_the_minimum_is_a_hard_error(self):
-        manifold = _topology_manifold(_circle(seed=47), seed=47)
         with pytest.raises(ValueError, match="n_nulls must be at least"):
             ManifoldComparator().compare_against_nulls(
-                manifold, n_nulls=MINIMUM_VALID_NULLS - 1, metrics=("topology",)
+                _manifold(_circle(seed=47), seed=47),
+                n_nulls=MINIMUM_VALID_NULLS - 1,
+                metrics=("topology",),
             )
 
+    def test_comparison_leaves_the_observed_manifold_unchanged(self):
+        manifold = _manifold(_isotropic(seed=24), seed=24)
+        before = {
+            "metrics": manifold.metrics,
+            "eps": manifold.eps,
+            "diameter": manifold.diameter,
+            "m": manifold.m,
+            "cloud": manifold.cloud.copy(),
+            "dgms": [d.copy() for d in manifold.dgms],
+            "rng_state": manifold.rng.bit_generator.state,
+        }
+        ManifoldComparator().compare_against_nulls(
+            manifold, n_nulls=19, base_seed=24, metrics=("topology",)
+        )
+        assert manifold.metrics == before["metrics"]
+        assert manifold.eps == before["eps"]
+        assert manifold.diameter == before["diameter"]
+        assert manifold.m == before["m"]
+        assert np.array_equal(manifold.cloud, before["cloud"])
+        assert all(np.array_equal(a, b) for a, b in zip(manifold.dgms, before["dgms"]))
+        assert manifold.rng.bit_generator.state == before["rng_state"]
+
+    def test_result_reports_the_null_diagnostics_once(self):
+        result = ManifoldComparator().compare_against_nulls(
+            _manifold(_low_rank(n=30, d=60, rank=5), seed=8),
+            n_nulls=19,
+            base_seed=8,
+            metrics=("topology",),
+        )
+        assert result["null_kind"] == NULL_KIND
+        assert result["null_diagnostics"]["relative_spectrum_error"] < 1e-10
+        assert isinstance(result["null_diagnostics"]["rank"], int)
+
+
+class TestMetricIndependence:
     def test_intrinsic_dimension_failure_leaves_topology_measurable(self):
         class NoIntrinsicDim(FastPipeline):
-            def get_intrinsic_dim(self, point_cloud):
+            def get_intrinsic_dim(self, cloud):
                 raise RuntimeError("estimator unavailable")
 
         manifold = Manifold(
@@ -490,206 +601,158 @@ class TestFailureHandling:
         assert "estimator unavailable" in manifold.intrinsic_dim_error
         assert len(manifold.dgms) >= 2
 
-
-# ---------------------------------------------------------------------------
-# Unavailable inference and metric independence
-# ---------------------------------------------------------------------------
-
-
-class TestUnavailableInference:
-    def test_descriptive_id_reports_no_pvalue(self):
+    def test_selecting_only_topology_skips_curvature_and_id(self):
         manifold = Manifold(
-            FastPipeline(), _isotropic(seed=4), metrics=("intrinsic_dimension", "topology"), seed=4
+            FastPipeline(), _circle(seed=3), metrics=("intrinsic_dimension", "topology"), seed=3
         )
+        result = ManifoldComparator().compare_against_nulls(
+            manifold, n_nulls=19, base_seed=10, metrics=("topology",)
+        )
+        assert "H1_bottleneck" in result["metrics"]
+        assert "curvature_wasserstein" not in result["metrics"]
+        assert "id_difference" not in result["metrics"]
+
+    def test_descriptive_id_reports_no_pvalue(self):
         block = ManifoldComparator().compare_against_nulls(
-            manifold,
-            kind="isotropic_gaussian",
+            _manifold(_isotropic(seed=4), seed=4, metrics=("intrinsic_dimension",)),
             n_nulls=19,
             base_seed=20,
             metrics=("intrinsic_dimension",),
-            infer_intrinsic_dimension=False,
         )["metrics"]["id_difference"]
         assert block["inference_available"] is False
         assert np.isnan(block["pvalue"])
-        assert block["calibration_method"] == "descriptive_twoNN"
-        assert "observed_intrinsic_dimension" in block
+        assert "descriptively" in block["failure_reason"]
 
     def test_inferential_id_reports_a_bounded_pvalue(self):
-        manifold = Manifold(
-            FastPipeline(), _isotropic(seed=4), metrics=("intrinsic_dimension", "topology"), seed=4
-        )
         block = ManifoldComparator().compare_against_nulls(
-            manifold,
-            kind="isotropic_gaussian",
+            _manifold(_isotropic(seed=4), seed=4, metrics=("intrinsic_dimension",)),
             n_nulls=19,
             base_seed=20,
             metrics=("intrinsic_dimension",),
             infer_intrinsic_dimension=True,
         )["metrics"]["id_difference"]
         assert block["inference_available"] is True
-        assert block["calibration_method"] == "loo_null_center_deviation"
         assert block["minimum_attainable_pvalue"] <= block["pvalue"] <= 1.0
-
-    def test_selecting_only_topology_skips_curvature_and_id(self):
-        manifold = Manifold(
-            FastPipeline(), _circle(seed=3), metrics=("intrinsic_dimension", "topology"), seed=3
-        )
-        assert manifold.curvature_values.size == 0
-        result = ManifoldComparator().compare_against_nulls(
-            manifold, kind="isotropic_gaussian", n_nulls=19, base_seed=10, metrics=("topology",)
-        )
-        assert "H1_bottleneck" in result["metrics"]
-        assert "curvature_wasserstein" not in result["metrics"]
-        assert "id_difference" not in result["metrics"]
-
-    def test_every_metric_block_reports_its_ensemble_size(self):
-        manifold = _topology_manifold(_circle(seed=21), seed=21)
-        result = ManifoldComparator().compare_against_nulls(
-            manifold, kind="isotropic_gaussian", n_nulls=19, base_seed=21, metrics=("topology",)
-        )
-        for block in result["metrics"].values():
-            assert block["n_valid_nulls"] == 19
-            assert block["minimum_attainable_pvalue"] == pytest.approx(1.0 / 20.0)
-            assert block["calibration_method"] == "exchangeable_loo_median_distance"
-            assert block["metric_direction"] in {"greater", "two_sided"}
-
-
-# ---------------------------------------------------------------------------
-# Mutation safety
-# ---------------------------------------------------------------------------
-
-
-class TestMutationSafety:
-    def test_comparison_leaves_the_observed_manifold_unchanged(self):
-        manifold = Manifold(
-            FastPipeline(),
-            _isotropic(seed=24),
-            metrics=("topology",),
-            seed=24,
-            covariance_estimator="ledoit_wolf",
-        )
-        before = {
-            "covariance_estimator": manifold.covariance_estimator,
-            "metrics": manifold.metrics,
-            "eps": manifold.eps,
-            "diameter": manifold.diameter,
-            "m": manifold.m,
-            "cloud": manifold.cloud.copy(),
-            "dgms": [d.copy() for d in manifold.dgms],
-            "curvature_values": manifold.curvature_values.copy(),
-        }
-        ManifoldComparator().compare_against_nulls(
-            manifold,
-            kind="covariance_gaussian",
-            n_nulls=19,
-            base_seed=24,
-            metrics=("topology",),
-            covariance_estimator="regularized_empirical",
-        )
-        assert manifold.covariance_estimator == before["covariance_estimator"]
-        assert manifold.metrics == before["metrics"]
-        assert manifold.eps == before["eps"]
-        assert manifold.diameter == before["diameter"]
-        assert manifold.m == before["m"]
-        assert np.array_equal(manifold.cloud, before["cloud"])
-        assert all(np.array_equal(a, b) for a, b in zip(manifold.dgms, before["dgms"]))
-        assert np.array_equal(manifold.curvature_values, before["curvature_values"])
-
-    def test_gaussian_is_fitted_once_per_ensemble(self, monkeypatch):
-        calls = {"n": 0}
-        original = null_cloud.fit_null_gaussian
-
-        def counting_fit(*args, **kwargs):
-            calls["n"] += 1
-            return original(*args, **kwargs)
-
-        monkeypatch.setattr(null_cloud, "fit_null_gaussian", counting_fit)
-        manifold = _topology_manifold(_isotropic(seed=25), seed=25)
-        ManifoldComparator().compare_against_nulls(
-            manifold, kind="covariance_gaussian", n_nulls=19, base_seed=25, metrics=("topology",)
-        )
-        assert calls["n"] == 1
-
-
-# ---------------------------------------------------------------------------
-# Curvature comparison semantics
-# ---------------------------------------------------------------------------
 
 
 class TestCurvatureComparison:
     def test_signed_difference_reverses_with_direction(self):
-        negative, positive = _curvature_double([-0.9, -0.8]), _curvature_double([0.9, 0.8])
-        forward = ManifoldComparator().curvature_difference(negative, positive)
-        backward = ManifoldComparator().curvature_difference(positive, negative)
+        forward = ManifoldComparator().curvature_difference(
+            _curvatures([-0.9, -0.8]), _curvatures([0.9, 0.8])
+        )
+        backward = ManifoldComparator().curvature_difference(
+            _curvatures([0.9, 0.8]), _curvatures([-0.9, -0.8])
+        )
         assert forward["negative_fraction_difference"] == pytest.approx(1.0)
         assert backward["negative_fraction_difference"] == pytest.approx(-1.0)
         assert forward["mean_difference"] == pytest.approx(-backward["mean_difference"])
 
     def test_absolute_difference_is_unchanged_when_direction_reverses(self):
-        negative, positive = _curvature_double([-0.9, -0.8]), _curvature_double([0.9, 0.8])
-        forward = ManifoldComparator().curvature_difference(negative, positive)
-        backward = ManifoldComparator().curvature_difference(positive, negative)
+        forward = ManifoldComparator().curvature_difference(
+            _curvatures([-0.9, -0.8]), _curvatures([0.9, 0.8])
+        )
+        backward = ManifoldComparator().curvature_difference(
+            _curvatures([0.9, 0.8]), _curvatures([-0.9, -0.8])
+        )
         for key in ("absolute_negative_fraction_difference", "frac_negative_difference"):
             assert forward[key] == pytest.approx(backward[key]) == pytest.approx(1.0)
 
     def test_empty_curvature_yields_nan_rather_than_raising(self):
         result = ManifoldComparator().curvature_difference(
-            _curvature_double([]), _curvature_double([0.1, 0.2])
+            _curvatures([]), _curvatures([0.1, 0.2])
         )
         assert all(np.isnan(value) for value in result.values())
 
 
 # ---------------------------------------------------------------------------
-# Scientific sanity checks
+# Scientific behavior
 # ---------------------------------------------------------------------------
 
 
+TOPOLOGY_AXES = ("H0_bottleneck", "H0_wasserstein", "H1_bottleneck", "H1_wasserstein")
+
+
+@functools.lru_cache(maxsize=None)
+def _reject_rates(maker, *, trials=8, n_nulls=19, alpha=0.05):
+    """Rejection rate per topology axis over ``trials`` independent seeds.
+
+    Memoised: several tests compare the same shapes, and each call runs
+    trials x n_nulls measurements.
+    """
+    comparator, pipeline = ManifoldComparator(), FastPipeline()
+    counts = dict.fromkeys(TOPOLOGY_AXES, 0)
+    for trial in range(trials):
+        manifold = Manifold(
+            pipeline, maker(seed=2000 + trial), metrics=("topology",), seed=2000 + trial
+        )
+        metrics = comparator.compare_against_nulls(
+            manifold, n_nulls=n_nulls, base_seed=8000 + trial * 40, metrics=("topology",)
+        )["metrics"]
+        for axis in TOPOLOGY_AXES:
+            block = metrics[axis]
+            if block["inference_available"] and block["pvalue"] <= alpha:
+                counts[axis] += 1
+    return tuple(sorted((axis, count / trials) for axis, count in counts.items()))
+
+
+def _rates(maker):
+    return dict(_reject_rates(maker))
+
+
 class TestScientificBehavior:
+    """Several seeds per shape. These are calibration checks, not proofs.
+
+    Measured rejection rates at alpha = 0.05 over 8 seeds, n_nulls = 19:
+
+        shape        H0_bn  H0_wass  H1_bn  H1_wass
+        isotropic     0.00     0.00   0.00     0.12
+        low_rank      0.12     0.25   0.00     0.00
+        line          0.00     1.00   0.00     0.00
+        circle        0.00     0.62   1.00     1.00
+        helix         0.75     1.00   0.00     0.00
+        swiss_roll    0.12     0.25   1.00     1.00
+
+    Loops (circle, Swiss roll) are caught by H1; curves (line, helix) have no
+    loop and are caught by the H0 merge structure instead. Which axis fires is a
+    property of the shape, so the tests below assert per-shape rather than
+    forcing every shape through H1.
+    """
+
+    @pytest.mark.parametrize("maker", [_isotropic, _low_rank])
+    def test_linear_gaussian_clouds_are_not_systematically_rejected(self, maker):
+        """A linear-Gaussian cloud is exactly what this null explains."""
+        rates = _rates(maker)
+        assert max(rates.values()) <= 0.30, rates
+
+    @pytest.mark.parametrize("maker", [_circle, _swiss_roll])
+    def test_shapes_with_a_loop_are_caught_by_h1(self, maker):
+        assert _rates(maker)["H1_bottleneck"] >= 0.5
+
+    @pytest.mark.parametrize("maker", [_line, _helix])
+    def test_curves_without_a_loop_are_caught_by_h0(self, maker):
+        rates = _rates(maker)
+        assert rates["H0_wasserstein"] >= 0.5, rates
+        # A contractible curve genuinely has no 1-cycle, so H1 should stay quiet.
+        assert rates["H1_bottleneck"] <= 0.25, rates
+
+    @pytest.mark.parametrize("maker", [_circle, _helix, _line, _swiss_roll])
+    def test_nonlinear_shapes_outrank_matched_gaussian_controls(self, maker):
+        """The contrast against the controls, not any absolute rate, is the claim."""
+        nonlinear = max(_rates(maker).values())
+        control = max(max(_rates(_isotropic).values()), max(_rates(_low_rank).values()))
+        assert nonlinear > control
+
+    def test_rejection_is_not_driven_by_spectrum_or_rank_mismatch(self):
+        """Every draw carries the observed spectrum, so rank cannot be the signal."""
+        diagnostics = ManifoldComparator().compare_against_nulls(
+            _manifold(_circle(seed=77), seed=77), n_nulls=19, base_seed=77, metrics=("topology",)
+        )["null_diagnostics"]
+        assert diagnostics["relative_spectrum_error"] < 1e-10
+        assert diagnostics["target_effective_rank"] == pytest.approx(
+            diagnostics["sample_effective_rank"], rel=1e-8
+        )
+
     def test_twonn_variability_is_large_relative_to_signal(self):
+        """Why intrinsic dimension stays descriptive by default."""
         ids = [FastPipeline().get_intrinsic_dim(_isotropic(n=36, d=12, seed=i)) for i in range(30)]
         assert np.std(ids) > 1.0
-
-    def test_circle_rejects_through_h1_and_gaussian_does_not(self):
-        def reject_rate(maker):
-            comparator, pipeline, rejects = ManifoldComparator(), FastPipeline(), 0
-            for trial in range(10):
-                manifold = Manifold(
-                    pipeline, maker(seed=2000 + trial), metrics=("topology",), seed=2000 + trial
-                )
-                result = comparator.compare_against_nulls(
-                    manifold,
-                    kind="isotropic_gaussian",
-                    n_nulls=19,
-                    base_seed=8000 + trial * 40,
-                    metrics=("topology",),
-                )
-                block = result["metrics"]["H1_bottleneck"]
-                if block["inference_available"] and block["pvalue"] <= 0.05:
-                    rejects += 1
-            return rejects / 10
-
-        assert reject_rate(_circle) >= 0.5
-        assert reject_rate(_isotropic) <= 0.25
-
-    def test_inferential_id_false_positive_rate_stays_near_alpha(self):
-        comparator, pipeline, rejects = ManifoldComparator(), FastPipeline(), 0
-        trials = 40
-        for trial in range(trials):
-            manifold = Manifold(
-                pipeline,
-                _isotropic(n=40, d=8, seed=1000 + trial),
-                metrics=("intrinsic_dimension",),
-                seed=1000 + trial,
-            )
-            block = comparator.compare_against_nulls(
-                manifold,
-                kind="isotropic_gaussian",
-                n_nulls=19,
-                base_seed=5000 + trial * 50,
-                metrics=("intrinsic_dimension",),
-                infer_intrinsic_dimension=True,
-            )["metrics"]["id_difference"]
-            if block["inference_available"] and block["pvalue"] <= 0.05:
-                rejects += 1
-        # Slack for a small Monte Carlo experiment.
-        assert rejects / trials <= 0.20

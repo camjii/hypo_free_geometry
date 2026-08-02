@@ -43,12 +43,9 @@ def _base_row(**overrides):
             "intrinsic_dimension": 1.0,
             "intrinsic_dimension_error": 0.1,
             "expected_intrinsic_dimension": 1.0,
-            "iso_h0_pvalue": 0.5,
-            "iso_h1_pvalue": 0.5,
-            "iso_id_pvalue": 0.5,
-            "cov_h0_pvalue": 0.5,
-            "cov_h1_pvalue": 0.5,
-            "cov_id_pvalue": 0.5,
+            "h0_pvalue": 0.5,
+            "h1_pvalue": 0.5,
+            "id_pvalue": 0.5,
             "curvature_enabled": False,
             "failure": "",
         }
@@ -100,12 +97,11 @@ def _fixture_runs(*, n_seeds: int = 2, include_oracle_boost: bool = True) -> pd.
                             h1_max_persistence=h1,
                             intrinsic_dimension_error=id_err,
                             expected_intrinsic_dimension=spec["expected"],
-                            iso_h0_pvalue=0.4 if dataset != "two_clusters" else 0.05,
-                            iso_h1_pvalue=0.05 if dataset == "circle" else 0.5,
-                            iso_id_pvalue=0.05 if dataset in {"spiked_gaussian", "isotropic_gaussian"} else 0.4,
-                            cov_h0_pvalue=0.5,
-                            cov_h1_pvalue=0.5,
-                            cov_id_pvalue=0.4 if dataset == "spiked_gaussian" else 0.5,
+                            # The Gaussian datasets must not reject their own
+                            # matched null; the structured ones should.
+                            h0_pvalue=0.05 if dataset == "two_clusters" else 0.4,
+                            h1_pvalue=0.05 if dataset == "circle" else 0.5,
+                            id_pvalue=0.4,
                             curvature_enabled=False,
                         )
                     )
@@ -359,22 +355,19 @@ def test_empirical_pvalue_uses_the_valid_null_count():
 def test_rejection_annotation_ignores_unavailable_pvalues():
     runs = pd.DataFrame(
         {
-            "iso_h0_pvalue": [0.01, np.nan, 0.90],
-            "iso_h1_pvalue": [np.nan, 0.02, 0.50],
-            "iso_id_pvalue": [0.04, 0.60, np.nan],
-            "cov_h0_pvalue": [np.nan, np.nan, np.nan],
-            "cov_h1_pvalue": [0.03, 0.30, 0.70],
-            "cov_id_pvalue": [0.50, 0.50, 0.50],
+            "h0_pvalue": [0.01, np.nan, 0.90],
+            "h1_pvalue": [np.nan, 0.02, 0.50],
+            "id_pvalue": [np.nan, np.nan, np.nan],
         }
     )
     annotated = nc.annotate_rejections(runs, alpha=0.05)
-    assert annotated["reject_iso_h0"].tolist() == [True, False, False]
-    assert annotated["reject_iso_h1"].tolist() == [False, True, False]
-    # A metric that was never measurable contributes no detections at all.
-    assert annotated["reject_cov_h0"].tolist() == [False, False, False]
-    # ...and is explicitly flagged as unavailable rather than as a passed test.
-    assert annotated["cov_h0_pvalue_available"].tolist() == [False, False, False]
-    assert annotated["iso_h0_pvalue_available"].tolist() == [True, False, True]
+    assert annotated["reject_h0"].tolist() == [True, False, False]
+    assert annotated["reject_h1"].tolist() == [False, True, False]
+    # A metric that was never measurable contributes no detections at all,
+    # and is flagged as unavailable rather than as a passed test.
+    assert annotated["reject_id"].tolist() == [False, False, False]
+    assert annotated["id_pvalue_available"].tolist() == [False, False, False]
+    assert annotated["h0_pvalue_available"].tolist() == [True, False, True]
 
 
 # ---------------------------------------------------------------------------
@@ -430,10 +423,10 @@ def test_one_failed_null_draw_does_not_abort_the_ensemble():
     manifold = _stub_manifold()
     manifold.pipeline.fail_on = {manifold.pipeline.calls + 3}
     result = nc.robust_null_comparison(
-        manifold, kind="isotropic_gaussian", n_nulls=8, base_seed=5, include_curvature=False
+        manifold, n_nulls=8, base_seed=5, include_curvature=False
     )
-    assert len(result["null_failures"]) == 1
-    assert result["n_nulls_measured"] == 7
+    assert len(result["failures"]) == 1
+    assert result["n_drawn"] == 7
     assert result["metrics"]["H1_bottleneck"]["n_valid_nulls"] == 7
 
 
@@ -441,9 +434,9 @@ def test_all_failed_draws_produce_an_explicit_unavailable_result():
     manifold = _stub_manifold(seed=1)
     manifold.pipeline.fail_on = set(range(manifold.pipeline.calls + 1, 100))
     result = nc.robust_null_comparison(
-        manifold, kind="isotropic_gaussian", n_nulls=8, base_seed=6, include_curvature=False
+        manifold, n_nulls=8, base_seed=6, include_curvature=False
     )
-    assert result["n_nulls_measured"] == 0
+    assert result["n_drawn"] == 0
     for block in result["metrics"].values():
         assert block["inference_available"] is False
         assert np.isnan(block["pvalue"])
@@ -452,16 +445,15 @@ def test_all_failed_draws_produce_an_explicit_unavailable_result():
 
 def test_gaussian_is_fitted_once_per_ensemble(monkeypatch):
     calls = {"n": 0}
-    original = nc.fit_null_gaussian
+    original = nc.fit_low_rank_gaussian
 
     def counting_fit(*args, **kwargs):
         calls["n"] += 1
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(nc, "fit_null_gaussian", counting_fit)
+    monkeypatch.setattr(nc, "fit_low_rank_gaussian", counting_fit)
     nc.robust_null_comparison(
-        _stub_manifold(seed=2), kind="covariance_gaussian", n_nulls=6,
-        base_seed=7, include_curvature=False,
+        _stub_manifold(seed=2), n_nulls=6, base_seed=7, include_curvature=False,
     )
     assert calls["n"] == 1
 
@@ -469,8 +461,7 @@ def test_gaussian_is_fitted_once_per_ensemble(monkeypatch):
 def test_fixed_base_seed_gives_identical_results():
     def run():
         return nc.robust_null_comparison(
-            _stub_manifold(seed=3), kind="isotropic_gaussian", n_nulls=6,
-            base_seed=11, include_curvature=False,
+            _stub_manifold(seed=3), n_nulls=6, base_seed=11, include_curvature=False,
         )["metrics"]["H0_bottleneck"]["pvalue"]
 
     assert run() == run()
@@ -479,9 +470,8 @@ def test_fixed_base_seed_gives_identical_results():
 def test_different_base_seeds_change_the_sampled_nulls():
     def scores(base_seed):
         return nc.robust_null_comparison(
-            _stub_manifold(seed=3), kind="isotropic_gaussian", n_nulls=6,
-            base_seed=base_seed, include_curvature=False,
-        )["metrics"]["H0_bottleneck"]["null_scores"]
+            _stub_manifold(seed=3), n_nulls=6, base_seed=base_seed, include_curvature=False,
+        )["metrics"]["H0_bottleneck"]["null_values"]
 
     assert scores(11) != scores(4242)
 
@@ -490,43 +480,51 @@ def test_observed_manifold_is_not_mutated():
     manifold = _stub_manifold(seed=4)
     before = {
         "enable_curvature": manifold.enable_curvature,
-        "covariance_estimator": manifold.covariance_estimator,
         "eps": manifold.eps,
         "diameter": manifold.diameter,
         "intrinsic_dim": manifold.intrinsic_dim,
         "cloud": manifold.cloud.copy(),
     }
     nc.robust_null_comparison(
-        manifold, kind="covariance_gaussian", n_nulls=6, base_seed=12, include_curvature=False
+        manifold, n_nulls=6, base_seed=12, include_curvature=False
     )
     assert manifold.enable_curvature == before["enable_curvature"]
-    assert manifold.covariance_estimator == before["covariance_estimator"]
     assert manifold.eps == before["eps"]
     assert manifold.diameter == before["diameter"]
     assert manifold.intrinsic_dim == before["intrinsic_dim"]
     assert np.array_equal(manifold.cloud, before["cloud"])
 
 
-def test_covariance_mismatch_diagnostics_are_included_once():
+def test_null_diagnostics_are_included_once_and_confirm_the_match():
     result = nc.robust_null_comparison(
-        _stub_manifold(seed=5), kind="covariance_gaussian", n_nulls=6,
-        base_seed=13, include_curvature=False,
+        _stub_manifold(seed=5), n_nulls=6, base_seed=13, include_curvature=False,
     )
-    match = result["covariance_match"]
-    assert set(match) >= {
-        "relative_frobenius_difference",
-        "effective_rank_inflation",
-        "is_matched",
+    diagnostics = result["null_diagnostics"]
+    assert set(diagnostics) == {
+        "rank",
+        "mean_error",
+        "target_eigenvalues",
+        "sample_eigenvalues",
+        "relative_spectrum_error",
+        "target_effective_rank",
+        "sample_effective_rank",
     }
-    assert isinstance(match["is_matched"], bool)
+    assert diagnostics["relative_spectrum_error"] < 1e-10
 
 
-@pytest.mark.parametrize("kind", ["covariance_gaussian", "isotropic_gaussian", "noise"])
-def test_supported_null_kinds_still_work(kind):
+@pytest.mark.parametrize("legacy", ["covariance_gaussian", "isotropic_gaussian", "noise"])
+def test_legacy_null_names_still_work_with_a_deprecation_warning(legacy):
     manifold = _stub_manifold(seed=6)
-    null = manifold.null(kind=kind, seed=3)
+    with pytest.deprecated_call():
+        null = manifold.null(kind=legacy, seed=3)
     assert null.cloud.shape == manifold.cloud.shape
     assert null.enable_curvature is manifold.enable_curvature
+
+
+def test_canonical_null_name_needs_no_warning():
+    manifold = _stub_manifold(seed=6)
+    null = manifold.null(kind=nc.NULL_KIND, seed=3)
+    assert null.cloud.shape == manifold.cloud.shape
 
 
 def test_invalid_input_shape_raises_a_concise_error():

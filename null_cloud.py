@@ -1,53 +1,63 @@
-"""Compare a concept manifold against its own null.
+"""Compare a concept manifold against a low-rank Gaussian null.
 
     manifold = Manifold(pipeline, activations, seed=42)
     result = ManifoldComparator().compare_against_nulls(
-        manifold, kind="covariance_gaussian", n_nulls=30, base_seed=100,
+        manifold, n_nulls=30, base_seed=100,
     )
 
-The null manifolds have the same sample count and activation dimension as the
-observed manifold. Each null is generated from statistics estimated from the
-observed activations and is measured through the same selected metric pipeline.
+The null model
+--------------
+One null: ``low_rank_gaussian``. It is fitted in the observed cloud's own
+empirical SVD subspace and sampled many times.
 
-What the nulls preserve and destroy
------------------------------------
-covariance_gaussian
-    Preserves the fitted mean and a *regularized* covariance estimate -- not the
-    empirical covariance. Both estimators shrink: Ledoit-Wolf toward a scaled
-    identity by an amount that grows with n_features / n_samples, and
-    ``regularized_empirical`` by a small ridge. Destroys every higher-order
-    property: multimodality, curvature, and nonlinear manifold structure.
+Let ``X`` be ``(n_samples, n_features)`` with mean ``mu`` and centered SVD
+``X - mu = U S V^T``. Keep the ``r`` numerically nonzero directions, where
+``r <= min(n_samples - 1, n_features)``, and let ``lambda = s^2 / (n - 1)`` be
+the matching covariance eigenvalues. A null draw is
 
-    In the d >> n regime the shrinkage is not a detail. On a 12 x 2304
-    activation cloud the Ledoit-Wolf intensity is ~0.63 and the null's effective
-    rank is ~61x the empirical one, so anisotropy, eigenspectrum and the induced
-    distance structure are all substantially altered and the draw is closer to
-    isotropic than to covariance-matched. ``fit_null_gaussian`` reports a
-    ``covariance_match`` block and ``compare_against_nulls`` warns once per
-    ensemble when the match is poor. Read a rejection against a poorly matched
-    null as "not this near-isotropic Gaussian", not "not any Gaussian with my
-    covariance".
+    Z = Q diag(sqrt(lambda))          with Q centered and Q^T Q = (n - 1) I
+    X_null = Z V_r + mu
 
-isotropic_gaussian
-    Preserves the fitted mean and the average per-feature variance. Destroys
-    anisotropy and every covariance direction, so a rejection is also driven by
-    ordinary linear correlation and says nothing on its own about nonlinear
-    structure.
+for a Haar-uniform centered orthonormal frame ``Q``. Every draw therefore
+reproduces the observed mean, the observed principal subspace, and the observed
+nonzero covariance spectrum *exactly*, not merely in expectation, while its
+orientation inside that subspace is uniformly random.
 
-noise
-    Backward-compatible alias for covariance_gaussian.
+Preserved: sample count, ambient dimension, mean, low-rank subspace, nonzero
+covariance eigenvalues, effective rank, anisotropy.
+Destroyed: every higher-order and nonlinear property -- curved trajectories,
+loops, clusters, and any non-Gaussian latent organisation not implied by the
+second moments.
+
+Why the spectrum is matched exactly rather than in expectation. Independent
+Gaussian latents would match it only in expectation, and at this project's
+sample sizes the realised spectrum wanders far. On the repository's 12 x 2304
+layer-6 activation cloud, independent latents give a relative spectrum error of
+0.52 and an effective rank of 5.85 +/- 0.66 against an observed 9.36, retaining
+6.7 +/- 0.5 PCA components against the observed 10. The exact construction gives
+0.00 error, effective rank 9.36, and exactly 10 components. PCA dimension feeds
+every downstream topology statistic, so matching in expectation would leave a
+systematic linear-structure mismatch inside the comparison. This is a
+moment-constrained surrogate -- a matrix-valued low-rank adaptation of
+covariance-constrained surrogate testing -- not an i.i.d. Gaussian sample.
+
+Interpreting a rejection
+------------------------
+A small p-value means the observed statistic is unusual relative to clouds
+sharing its mean and linear second-order structure and nothing else. It does not
+show the recovered structure is semantically meaningful, and it does not rule out
+explanations outside this particular linear Gaussian control. With n_samples in
+the tens, both topology and the covariance spectrum remain uncertain.
 
 Inference
 ---------
-Every empirical p-value in this module goes through :func:`empirical_pvalue`.
-A metric whose observed statistic is non-finite, or whose null ensemble has too
-few finite statistics, reports ``inference_available=False`` and a NaN p-value
-with a ``failure_reason``. Unavailable inference is never reported as a
-rejection.
+Every p-value goes through :func:`empirical_pvalue`. A metric whose observed
+statistic is non-finite, or whose ensemble has too few finite statistics, reports
+``inference_available=False`` with a ``failure_reason`` and a NaN p-value.
+Unavailable inference is never reported as a rejection.
 
-Intrinsic dimension is descriptive by default: TwoNN is high-variance at the
-sample sizes typical for activation clouds, so ID enters a significance test
-only when ``infer_intrinsic_dimension=True``.
+Intrinsic dimension is descriptive by default: TwoNN is high-variance at these
+sample sizes, so it enters a test only when ``infer_intrinsic_dimension=True``.
 """
 
 from __future__ import annotations
@@ -59,90 +69,98 @@ import numpy as np
 import persim
 from scipy.spatial.distance import pdist
 from scipy.stats import wasserstein_distance
-from sklearn.covariance import EmpiricalCovariance, LedoitWolf
 
 
-SUPPORTED_METRICS = (
-    "intrinsic_dimension",
-    "topology",
-    "curvature",
-)
+SUPPORTED_METRICS = ("intrinsic_dimension", "topology", "curvature")
 DEFAULT_METRICS = SUPPORTED_METRICS
-COVARIANCE_ESTIMATORS = (
-    "ledoit_wolf",
-    "regularized_empirical",
-)
 
-# Fewer finite null statistics than this and the ensemble cannot support any
-# inference worth reporting.
+#: The one null model. Older names resolve here with a deprecation warning.
+NULL_KIND = "low_rank_gaussian"
+_DEPRECATED_KINDS = {
+    "noise": "an alias that never named a model",
+    "covariance_gaussian": "a Ledoit-Wolf null that did not preserve the observed spectrum",
+    "isotropic_gaussian": "a null that discarded anisotropy entirely",
+}
+
+#: Fewer finite null statistics than this and no inference is reported.
 MINIMUM_VALID_NULLS = 3
-
-# A Monte Carlo p-value cannot fall below 1 / (valid_nulls + 1), so alpha = 0.05
-# is unreachable with fewer than 19 usable null draws.
+#: A p-value cannot fall below 1 / (valid + 1), so alpha = 0.05 needs this many.
 MINIMUM_NULLS_FOR_ALPHA_05 = 19
 
-# Above either threshold the fitted covariance is far enough from the empirical
-# one that "covariance-matched" overstates what the null preserves.
-_COVARIANCE_MISMATCH_FROBENIUS = 0.30
-_COVARIANCE_MISMATCH_RANK_INFLATION = 2.0
+CURVATURE_UNAVAILABLE = {
+    "distribution_distance": float("nan"),
+    "mean_difference": float("nan"),
+    "negative_fraction_difference": float("nan"),
+    "absolute_negative_fraction_difference": float("nan"),
+    "frac_negative_difference": float("nan"),
+}
+
+_TWO_SIDED_METRICS = frozenset(
+    {"curvature_mean_difference", "curvature_negative_fraction_difference"}
+)
 
 
 # ---------------------------------------------------------------------------
-# 1. Validation
+# Validation
 # ---------------------------------------------------------------------------
 
 
-def validate_cloud(cloud: Any, *, name: str = "cloud", minimum_samples: int = 2) -> np.ndarray:
+def validate_cloud(cloud: Any, *, name: str = "cloud") -> np.ndarray:
     """Return a validated finite ``[n_samples, n_features]`` float array.
 
-    Raises ValueError naming the offending argument rather than letting NaN or
-    a wrong shape surface several frames deep inside sklearn.
+    Raises ValueError naming the offending argument rather than letting a wrong
+    shape or a NaN surface several frames deep inside sklearn.
     """
     array = np.asarray(cloud, dtype=float)
     if array.ndim != 2:
         raise ValueError(
-            f"{name} must be a two-dimensional array shaped [n_samples, n_features]; "
-            f"received shape {array.shape}"
+            f"{name} must be two-dimensional [n_samples, n_features]; got shape {array.shape}"
         )
-    if array.shape[0] < minimum_samples:
-        raise ValueError(
-            f"{name} must contain at least {minimum_samples} samples; "
-            f"received {array.shape[0]}"
-        )
+    if array.shape[0] < 2:
+        raise ValueError(f"{name} needs at least 2 samples; got {array.shape[0]}")
     if array.shape[1] < 1:
-        raise ValueError(f"{name} must contain at least one feature dimension")
+        raise ValueError(f"{name} needs at least one feature")
     if not np.isfinite(array).all():
         raise ValueError(f"{name} must contain only finite values (no NaN or inf)")
     return array
 
 
-def _validate_unit_interval(value: float, name: str) -> float:
+def _unit_interval(value: float, name: str) -> float:
     number = float(value)
     if not np.isfinite(number) or not 0.0 < number <= 1.0:
-        raise ValueError(f"{name} must be a finite number in the interval (0, 1]")
+        raise ValueError(f"{name} must be a finite number in (0, 1]")
     return number
 
 
 def _normalize_metrics(metrics: Sequence[str] | None) -> tuple[str, ...]:
-    """Deduplicate and validate a metric selection."""
     if metrics is None:
         return DEFAULT_METRICS
     if isinstance(metrics, str):
         raise TypeError("metrics must be a sequence of metric names, not a string")
     selected = tuple(dict.fromkeys(str(name) for name in metrics))
     if not selected:
-        raise ValueError(
-            "metrics must select at least one of " + ", ".join(SUPPORTED_METRICS)
-        )
+        raise ValueError("metrics must select at least one of " + ", ".join(SUPPORTED_METRICS))
     unknown = [name for name in selected if name not in SUPPORTED_METRICS]
     if unknown:
         raise ValueError(
-            "unknown metrics: "
-            + ", ".join(unknown)
-            + ". Supported: "
-            + ", ".join(SUPPORTED_METRICS)
+            f"unknown metrics: {', '.join(unknown)}. Supported: {', '.join(SUPPORTED_METRICS)}"
         )
     return selected
+
+
+def resolve_null_kind(kind: str | None) -> str:
+    """Map a legacy null name onto the single supported model."""
+    if kind is None or kind == NULL_KIND:
+        return NULL_KIND
+    if kind in _DEPRECATED_KINDS:
+        warnings.warn(
+            f"null kind {kind!r} is deprecated ({_DEPRECATED_KINDS[kind]}) and now "
+            f"resolves to {NULL_KIND!r}; pass {NULL_KIND!r} explicitly.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return NULL_KIND
+    raise ValueError(f"unknown null kind: {kind!r}. The only model is {NULL_KIND!r}.")
 
 
 def _finite(dgm):
@@ -156,420 +174,164 @@ def _finite(dgm):
 
 
 # ---------------------------------------------------------------------------
-# 2. The one empirical-inference calculation
+# The null model
+# ---------------------------------------------------------------------------
+
+
+def effective_rank(eigenvalues: Any) -> float:
+    """Roy-Vetterli effective rank: exp(entropy of the eigenvalue spectrum)."""
+    values = np.clip(np.asarray(eigenvalues, dtype=float), 0.0, None)
+    total = float(values.sum())
+    if total <= 0.0:
+        return 0.0
+    probs = values / total
+    return float(np.exp(-np.sum(probs * np.log(probs + 1e-300))))
+
+
+def fit_low_rank_gaussian(cloud: Any) -> dict[str, Any]:
+    """Fit the null once per observed cloud, from the thin centered SVD.
+
+    Never forms a dense ``n_features x n_features`` covariance: only the
+    ``rank x n_features`` right-singular basis and the ``rank`` nonzero
+    covariance eigenvalues are kept. Rank is the number of singular values above
+    ``max(n, d) * eps * s_max``, the usual numerical-rank tolerance.
+    """
+    x = validate_cloud(cloud)
+    n_samples, n_features = x.shape
+    mean = x.mean(axis=0)
+    _, singular_values, vt = np.linalg.svd(x - mean, full_matrices=False)
+
+    largest = float(singular_values[0]) if singular_values.size else 0.0
+    tolerance = max(n_samples, n_features) * np.finfo(float).eps * largest
+    rank = int(np.count_nonzero(singular_values > tolerance))
+    if rank < 1:
+        raise ValueError(
+            "cloud has zero centered rank: every sample is identical, so there is "
+            "no covariance structure to match"
+        )
+
+    return {
+        "kind": NULL_KIND,
+        "mean": mean,
+        "basis": np.ascontiguousarray(vt[:rank]),
+        "eigenvalues": singular_values[:rank] ** 2 / (n_samples - 1),
+        "rank": rank,
+        "n_samples": n_samples,
+        "n_features": n_features,
+    }
+
+
+def sample_low_rank_gaussian(fit: Mapping[str, Any], *, seed: int) -> np.ndarray:
+    """Draw one null cloud whose nonzero covariance spectrum matches the fit exactly.
+
+    A Gaussian score matrix is centered and replaced by its orthogonal polar
+    factor, which is Haar-uniform over centered orthonormal frames. Scaling that
+    frame by ``sqrt(eigenvalues)`` makes the draw's latent Gram matrix equal
+    ``(n - 1) diag(eigenvalues)`` to numerical precision, so every draw carries
+    the observed spectrum while its orientation is uniformly random.
+    """
+    rng = np.random.default_rng(int(seed))
+    n_samples, rank = int(fit["n_samples"]), int(fit["rank"])
+
+    scores = rng.normal(size=(n_samples, rank))
+    scores -= scores.mean(axis=0)
+    left, _, right = np.linalg.svd(scores, full_matrices=False)
+    frame = (left @ right) * np.sqrt(n_samples - 1)
+
+    latent = frame * np.sqrt(np.asarray(fit["eigenvalues"], dtype=float))
+    return latent @ np.asarray(fit["basis"], dtype=float) + np.asarray(fit["mean"], dtype=float)
+
+
+def null_diagnostics(fit: Mapping[str, Any], reference: Any) -> dict[str, Any]:
+    """Check one representative draw against the fitted target. Computed once."""
+    target = np.asarray(fit["eigenvalues"], dtype=float)
+    drawn = np.asarray(reference, dtype=float)
+    singular = np.linalg.svd(drawn - drawn.mean(axis=0), compute_uv=False)
+    sample = (singular**2 / (drawn.shape[0] - 1))[: target.size]
+    return {
+        "rank": int(fit["rank"]),
+        "mean_error": float(
+            np.linalg.norm(drawn.mean(axis=0) - fit["mean"])
+            / (np.linalg.norm(fit["mean"]) + 1e-12)
+        ),
+        "target_eigenvalues": target.tolist(),
+        "sample_eigenvalues": sample.tolist(),
+        "relative_spectrum_error": float(
+            np.linalg.norm(sample - target) / (np.linalg.norm(target) + 1e-12)
+        ),
+        "target_effective_rank": effective_rank(target),
+        "sample_effective_rank": effective_rank(sample),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The one empirical-inference calculation
 # ---------------------------------------------------------------------------
 
 
 def empirical_pvalue(
-    observed_score: float,
-    null_scores: Sequence[float],
+    observed: float,
+    null_values: Sequence[float],
     *,
     direction: str = "greater",
     minimum_valid_nulls: int = MINIMUM_VALID_NULLS,
 ) -> dict[str, Any]:
     """Rank one observed statistic against a null ensemble.
 
-    The p-value is ``(1 + #{valid null >= observed}) / (valid nulls + 1)``, the
-    standard plus-one corrected Monte Carlo estimate. Only *finite* null
-    statistics are valid, and the count of valid nulls -- not the number
-    requested -- sets the denominator: counting a rank over survivors while
-    dividing by the requested draws biases every p-value downward and caps the
-    reachable p-value below 1.
+    ``pvalue = (1 + #{valid null >= observed}) / (valid nulls + 1)`` -- the
+    plus-one corrected Monte Carlo estimate. Only *finite* null statistics are
+    valid, and their count, not the number requested, sets the denominator:
+    ranking over survivors while dividing by the request biases every p-value
+    downward and caps the reachable value below 1.
 
-    Inference is unavailable, and ``pvalue`` is NaN, when the observed statistic
-    is non-finite or fewer than ``minimum_valid_nulls`` null statistics are
-    finite. Unavailable is never the same as non-significant: callers must test
-    ``inference_available`` before acting on ``pvalue``.
-
-    ``direction="two_sided"`` ranks absolute deviations; ``"greater"`` ranks the
-    statistic as given, which is the correct choice for a distance.
+    Inference is unavailable, and ``pvalue`` is NaN, when ``observed`` is
+    non-finite or fewer than ``minimum_valid_nulls`` nulls are finite.
+    Unavailable is not the same as non-significant: check ``inference_available``
+    before acting on ``pvalue``.
     """
     if direction not in {"greater", "two_sided"}:
         raise ValueError("direction must be 'greater' or 'two_sided'")
 
-    scores = np.asarray(list(null_scores), dtype=float)
-    observed = float(observed_score)
+    values = np.asarray(list(null_values), dtype=float)
+    statistic = float(observed)
     if direction == "two_sided":
-        scores = np.abs(scores)
-        observed = abs(observed)
+        values, statistic = np.abs(values), abs(statistic)
+    valid = values[np.isfinite(values)]
 
-    valid = scores[np.isfinite(scores)]
-    n_valid = int(valid.size)
-    null_median = float(np.median(valid)) if n_valid else float("nan")
-    null_mad = float(np.median(np.abs(valid - null_median))) if n_valid else float("nan")
-
-    failure_reason: str | None = None
-    if not np.isfinite(observed):
-        failure_reason = "observed statistic is not finite"
-    elif n_valid < minimum_valid_nulls:
-        failure_reason = (
-            f"only {n_valid} of {scores.size} null statistics are finite; "
+    if not np.isfinite(statistic):
+        reason = "observed statistic is not finite"
+    elif valid.size < minimum_valid_nulls:
+        reason = (
+            f"only {valid.size} of {values.size} null statistics are finite; "
             f"at least {minimum_valid_nulls} are required"
         )
-
-    if failure_reason is not None:
-        return {
-            "observed_score": float(observed_score),
-            "null_scores": [float(value) for value in null_scores],
-            "n_valid_nulls": n_valid,
-            "pvalue": float("nan"),
-            "minimum_attainable_pvalue": float("nan"),
-            "empirical_rank": None,
-            "inference_available": False,
-            "failure_reason": failure_reason,
-            "null_median": null_median,
-            "null_mad": null_mad,
-            "robust_z": float("nan"),
-            "direction": direction,
-        }
-
-    empirical_rank = int(1 + np.sum(valid >= observed))
-    pvalue = float(empirical_rank / (n_valid + 1))
-    return {
-        "observed_score": float(observed_score),
-        "null_scores": [float(value) for value in null_scores],
-        "n_valid_nulls": n_valid,
-        "pvalue": pvalue,
-        # No ensemble can report significance finer than this, however far the
-        # observed statistic sits from the null cloud.
-        "minimum_attainable_pvalue": float(1.0 / (n_valid + 1)),
-        "empirical_rank": empirical_rank,
-        "inference_available": True,
-        "failure_reason": None,
-        "null_median": null_median,
-        "null_mad": null_mad,
-        "robust_z": float((observed - null_median) / (1.4826 * null_mad + 1e-12)),
-        "direction": direction,
-    }
-
-
-def unavailable_result(reason: str, *, direction: str = "greater") -> dict[str, Any]:
-    """An inference result for a metric that could not be measured at all."""
-    return empirical_pvalue(float("nan"), [], direction=direction) | {
-        "failure_reason": reason
-    }
-
-
-# ---------------------------------------------------------------------------
-# 3. Fitting and sampling a null distribution
-# ---------------------------------------------------------------------------
-
-
-def _effective_rank(covariance: np.ndarray) -> float:
-    """Roy-Vetterli effective rank: exp(entropy of the eigenvalue spectrum)."""
-    eigenvalues = np.clip(np.linalg.eigvalsh(np.asarray(covariance, dtype=float)), 0.0, None)
-    total = float(eigenvalues.sum())
-    if total <= 0.0:
-        return 0.0
-    probs = eigenvalues / total
-    return float(np.exp(-np.sum(probs * np.log(probs + 1e-300))))
-
-
-def _covariance_diagnostics(
-    *,
-    mean: np.ndarray,
-    location: np.ndarray,
-    covariance: np.ndarray,
-    empirical_covariance: np.ndarray,
-    isotropic: bool,
-) -> dict[str, Any]:
-    """Describe how far the sampled covariance sits from the empirical one.
-
-    ``covariance_match.is_matched`` is the flag callers should read before
-    describing a covariance null as covariance-matched. It is always False for
-    the isotropic null, which discards covariance structure by design.
-    """
-    empirical_rank = _effective_rank(empirical_covariance)
-    null_rank = _effective_rank(covariance)
-    relative = float(
-        np.linalg.norm(covariance - empirical_covariance)
-        / (np.linalg.norm(empirical_covariance) + 1e-12)
-    )
-    inflation = float(null_rank / empirical_rank) if empirical_rank > 0.0 else float("nan")
-    matched = (
-        not isotropic
-        and relative <= _COVARIANCE_MISMATCH_FROBENIUS
-        and (not np.isfinite(inflation) or inflation <= _COVARIANCE_MISMATCH_RANK_INFLATION)
-    )
-    return {
-        "mean_l2_norm": float(np.linalg.norm(location)),
-        "mean_difference_l2": float(np.linalg.norm(location - mean)),
-        "empirical_cov_frobenius": float(np.linalg.norm(empirical_covariance)),
-        "null_cov_frobenius": float(np.linalg.norm(covariance)),
-        "empirical_effective_rank": empirical_rank,
-        "null_effective_rank": null_rank,
-        "top_empirical_eigenvalues": np.sort(np.linalg.eigvalsh(empirical_covariance))[::-1][:5].tolist(),
-        "top_null_eigenvalues": np.sort(np.linalg.eigvalsh(covariance))[::-1][:5].tolist(),
-        "covariance_match": {
-            "relative_frobenius_difference": relative,
-            "effective_rank_inflation": inflation,
-            "is_matched": bool(matched),
-            "note": "isotropic null intentionally discards covariance structure"
-            if isotropic
-            else None,
-        },
-    }
-
-
-def fit_null_gaussian(
-    cloud: np.ndarray,
-    *,
-    kind: str,
-    covariance_estimator: str = "ledoit_wolf",
-) -> dict[str, Any]:
-    """Fit the null's mean and covariance once for a whole ensemble.
-
-    The fit depends only on ``cloud``, so an ensemble must call this once and
-    reuse the result. ``diagnostics["covariance_match"]`` records whether the
-    fitted covariance is close enough to the empirical one for a
-    "covariance-matched" description to hold; see the module docstring.
-    """
-    x = validate_cloud(cloud)
-    if kind == "noise":
-        kind = "covariance_gaussian"
-
-    mean = x.mean(axis=0)
-    empirical_covariance = np.asarray(
-        EmpiricalCovariance(store_precision=False).fit(x).covariance_, dtype=float
-    )
-
-    if kind == "isotropic_gaussian":
-        average_variance = float(np.var(x, axis=0, ddof=1).mean())
-        if average_variance <= 0:
-            raise ValueError("isotropic Gaussian null requires positive variance")
-        location = mean
-        covariance = average_variance * np.eye(x.shape[1], dtype=float)
-        estimator_name = "isotropic_average_variance"
-        extras: dict[str, Any] = {"average_variance": average_variance}
-    elif kind == "covariance_gaussian":
-        if covariance_estimator not in COVARIANCE_ESTIMATORS:
-            raise ValueError(
-                f"unknown covariance_estimator: {covariance_estimator}. "
-                f"Use one of {COVARIANCE_ESTIMATORS}."
-            )
-        estimator_name = covariance_estimator
-        if covariance_estimator == "ledoit_wolf":
-            estimator = LedoitWolf(store_precision=False).fit(x)
-            covariance = np.asarray(estimator.covariance_, dtype=float)
-            location = np.asarray(estimator.location_, dtype=float)
-            extras = {"shrinkage": float(getattr(estimator, "shrinkage_", float("nan")))}
-        else:
-            # Ridge-stabilised empirical covariance for finite-sample / d >= n.
-            location = mean
-            eigenvalues = np.linalg.eigvalsh(empirical_covariance)
-            ridge = max(
-                1e-6, 1e-3 * float(np.mean(np.clip(eigenvalues, 0.0, None)) + 1e-12)
-            )
-            covariance = empirical_covariance + ridge * np.eye(
-                empirical_covariance.shape[0], dtype=float
-            )
-            extras = {"ridge": ridge}
     else:
-        raise ValueError(
-            f"unknown null kind: {kind}. Use 'covariance_gaussian', "
-            "'isotropic_gaussian', or 'noise'."
-        )
+        reason = None
 
-    diagnostics = _covariance_diagnostics(
-        mean=mean,
-        location=location,
-        covariance=covariance,
-        empirical_covariance=empirical_covariance,
-        isotropic=kind == "isotropic_gaussian",
-    )
-    diagnostics.update(extras)
-    return {
-        "kind": kind,
-        "mean": location,
-        "covariance": covariance,
-        "covariance_estimator": estimator_name,
-        "diagnostics": diagnostics,
-        **extras,
+    result: dict[str, Any] = {
+        "observed": float(observed),
+        "null_values": [float(value) for value in null_values],
+        "n_valid_nulls": int(valid.size),
+        "pvalue": float("nan"),
+        "minimum_attainable_pvalue": float("nan"),
+        "inference_available": False,
+        "failure_reason": reason,
     }
+    if reason is None:
+        result["pvalue"] = float((1 + np.sum(valid >= statistic)) / (valid.size + 1))
+        result["minimum_attainable_pvalue"] = float(1.0 / (valid.size + 1))
+        result["inference_available"] = True
+    return result
 
 
-def sample_null_cloud(
-    fit: Mapping[str, Any],
-    *,
-    sample_count: int,
-    seed: int,
-) -> np.ndarray:
-    """Draw one null cloud from a fit produced by :func:`fit_null_gaussian`."""
-    rng = np.random.default_rng(int(seed))
-    return rng.multivariate_normal(
-        mean=np.asarray(fit["mean"], dtype=float),
-        cov=np.asarray(fit["covariance"], dtype=float),
-        size=int(sample_count),
-    )
+def unavailable(reason: str) -> dict[str, Any]:
+    """An inference result for a metric that could not be measured at all."""
+    return empirical_pvalue(float("nan"), []) | {"failure_reason": reason}
 
 
 # ---------------------------------------------------------------------------
-# 4. Measuring one cloud
+# Measuring one cloud
 # ---------------------------------------------------------------------------
-
-
-class Manifold:
-    """A measured cloud: ID, persistence diagrams, curvature signature.
-
-    pipeline: exposes get_intrinsic_dim, reduce_pca, create_persistence_diagram,
-              create_epsilon_graph, compute_ollivier_ricci
-
-    Intrinsic dimension and curvature record their own failures in
-    ``intrinsic_dim_error`` / ``curvature_error`` and leave the other metrics
-    measurable. A cloud that cannot be projected or that yields a non-positive
-    epsilon is a hard measurement failure and raises.
-    """
-
-    def __init__(
-        self,
-        pipeline,
-        opt_activations,
-        cloud=None,
-        label="concept",
-        seed=0,
-        eps_density=0.10,
-        var_threshold=0.95,
-        metrics: Sequence[str] | None = None,
-        covariance_estimator: str = "ledoit_wolf",
-    ):
-        self.pipeline = pipeline
-        self.opt = validate_cloud(opt_activations, name="opt_activations")
-        self.label = label
-        self.rng = np.random.default_rng(seed)
-        self.eps_density = _validate_unit_interval(eps_density, "eps_density")
-        self.var_threshold = _validate_unit_interval(var_threshold, "var_threshold")
-        self.metrics = _normalize_metrics(metrics)
-        self.covariance_estimator = str(covariance_estimator)
-        self.cloud = self.opt if cloud is None else validate_cloud(cloud, name="cloud")
-
-        self.intrinsic_dim = float("nan")
-        self.intrinsic_dim_error: str | None = None
-        self.diameter = float("nan")
-        self.m = 0
-        self.dgms: list[np.ndarray] = []
-        self.eps = float("nan")
-        self.curvature_values = np.empty(0, dtype=float)
-        self.curvature_error: str | None = None
-        self.graph_diagnostics: dict[str, Any] | None = None
-        self._measure()
-
-    def _measure(self) -> None:
-        if "intrinsic_dimension" in self.metrics:
-            try:
-                value = float(self.pipeline.get_intrinsic_dim(self.cloud))
-                if not np.isfinite(value):
-                    raise ValueError("intrinsic-dimension estimate is non-finite")
-                self.intrinsic_dim = value
-            except Exception as exc:  # estimator failures must not abort topology
-                self.intrinsic_dim = float("nan")
-                self.intrinsic_dim_error = f"{type(exc).__name__}: {exc}"
-
-        if not ({"topology", "curvature"} & set(self.metrics)):
-            return
-
-        # REFIT per cloud: PCA can manufacture structure from high-dim noise,
-        # so freezing the concept's basis onto the null would never test it.
-        projected = self.pipeline.reduce_pca(self.cloud, self.var_threshold)
-        distances = pdist(projected)
-        if (
-            distances.size == 0
-            or not np.isfinite(distances).all()
-            or float(np.max(distances)) <= 0.0
-        ):
-            raise ValueError("projected cloud must contain distinct finite points")
-
-        # SCALE-NORMALISE: a loop is a shape property, not a size property.
-        self.diameter = float(np.max(distances))
-        projected = projected / self.diameter
-        self.m = int(projected.shape[1])
-
-        if "topology" in self.metrics:
-            self.dgms = self.pipeline.create_persistence_diagram(projected)["dgms"]
-
-        self.eps = self._select_epsilon(distances / self.diameter)
-
-        if "curvature" in self.metrics:
-            self._measure_curvature(projected)
-
-    def _select_epsilon(self, normalized_distances: np.ndarray) -> float:
-        """Epsilon at the ``eps_density`` quantile of the pairwise distances.
-
-        A non-positive or non-finite epsilon means graph geometry is not
-        measurable -- enough duplicate points that the graph would be empty.
-        concept_geometry.select_matched_density_epsilon refuses the same
-        condition; refuse it here too rather than building a degenerate graph.
-        """
-        ordered = np.sort(normalized_distances)
-        index = min(int(self.eps_density * len(ordered)), len(ordered) - 1)
-        epsilon = float(ordered[index])
-        if not np.isfinite(epsilon) or epsilon <= 0.0:
-            raise ValueError(
-                f"matched-density epsilon selection produced a non-positive radius "
-                f"(eps={epsilon!r}); the cloud has too many duplicate points at "
-                f"eps_density={self.eps_density}"
-            )
-        return epsilon
-
-    def _measure_curvature(self, projected: np.ndarray) -> None:
-        try:
-            graph = self.pipeline.create_epsilon_graph(projected, self.eps)
-            self.graph_diagnostics = _graph_diagnostics(graph)
-            values = np.asarray(
-                self.pipeline.compute_ollivier_ricci(graph)["raw_values"], dtype=float
-            )
-            if values.size == 0 or not np.isfinite(values).all():
-                self.curvature_error = "empty_or_nonfinite_curvature"
-            else:
-                self.curvature_values = values
-        except Exception as exc:
-            self.curvature_values = np.empty(0, dtype=float)
-            self.curvature_error = f"{type(exc).__name__}: {exc}"
-
-    def null(self, kind="covariance_gaussian", seed=None, covariance_estimator=None, fit=None):
-        """Generate and measure one null draw.
-
-        See the module docstring for what each ``kind`` preserves and destroys.
-        ``fit`` reuses a previously computed :func:`fit_null_gaussian` result;
-        ensembles must pass it, because the fit depends only on ``self.cloud``
-        and refitting per draw costs roughly three quarters of the runtime on a
-        wide activation cloud.
-        """
-        if kind == "shuffled":
-            raise NotImplementedError(
-                "kind='shuffled' requires separate positive and negative "
-                "activations. Permuting rows of one completed point cloud "
-                "would not change its geometry."
-            )
-        if kind == "noise":
-            kind = "covariance_gaussian"
-
-        estimator = (
-            self.covariance_estimator
-            if covariance_estimator is None
-            else str(covariance_estimator)
-        )
-        if fit is None:
-            fit = fit_null_gaussian(self.cloud, kind=kind, covariance_estimator=estimator)
-        null_seed = int(self.rng.integers(1 << 30)) if seed is None else int(seed)
-
-        return Manifold(
-            pipeline=self.pipeline,
-            opt_activations=sample_null_cloud(
-                fit, sample_count=len(self.cloud), seed=null_seed
-            ),
-            label=f"null:{kind}",
-            seed=null_seed,
-            eps_density=self.eps_density,
-            var_threshold=self.var_threshold,
-            metrics=self.metrics,
-            covariance_estimator=estimator,
-        )
-
-    def __repr__(self):
-        return (
-            f"Manifold({self.label}: ID={self.intrinsic_dim:.2f}, m={self.m}, "
-            f"{len(self.curvature_values)} edges, metrics={self.metrics})"
-        )
 
 
 def _graph_diagnostics(graph) -> dict[str, Any]:
@@ -593,34 +355,154 @@ def _graph_diagnostics(graph) -> dict[str, Any]:
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 
+class Manifold:
+    """A measured cloud: intrinsic dimension, persistence diagrams, curvature.
+
+    pipeline: exposes get_intrinsic_dim, reduce_pca, create_persistence_diagram,
+              create_epsilon_graph, compute_ollivier_ricci
+
+    Intrinsic dimension and curvature record their own failures in
+    ``intrinsic_dim_error`` / ``curvature_error`` and leave the other metrics
+    measurable. A cloud that cannot be projected, or whose matched-density
+    epsilon is not positive, is a hard measurement failure and raises.
+    """
+
+    def __init__(
+        self,
+        pipeline,
+        opt_activations,
+        cloud=None,
+        label="concept",
+        seed=0,
+        eps_density=0.10,
+        var_threshold=0.95,
+        metrics: Sequence[str] | None = None,
+    ):
+        self.pipeline = pipeline
+        self.opt = validate_cloud(opt_activations, name="opt_activations")
+        self.label = label
+        self.rng = np.random.default_rng(seed)
+        self.eps_density = _unit_interval(eps_density, "eps_density")
+        self.var_threshold = _unit_interval(var_threshold, "var_threshold")
+        self.metrics = _normalize_metrics(metrics)
+        self.cloud = self.opt if cloud is None else validate_cloud(cloud, name="cloud")
+
+        self.intrinsic_dim = float("nan")
+        self.intrinsic_dim_error: str | None = None
+        self.diameter = float("nan")
+        self.m = 0
+        self.dgms: list[np.ndarray] = []
+        self.eps = float("nan")
+        self.curvature_values = np.empty(0, dtype=float)
+        self.curvature_error: str | None = None
+        self.graph_diagnostics: dict[str, Any] | None = None
+        self._measure()
+
+    def _measure(self) -> None:
+        if "intrinsic_dimension" in self.metrics:
+            try:
+                value = float(self.pipeline.get_intrinsic_dim(self.cloud))
+                if not np.isfinite(value):
+                    raise ValueError("intrinsic-dimension estimate is non-finite")
+                self.intrinsic_dim = value
+            except Exception as exc:  # must not abort topology
+                self.intrinsic_dim_error = f"{type(exc).__name__}: {exc}"
+
+        if not ({"topology", "curvature"} & set(self.metrics)):
+            return
+
+        # REFIT per cloud: PCA can manufacture structure from high-dim noise,
+        # so freezing the concept's basis onto the null would never test it.
+        projected = self.pipeline.reduce_pca(self.cloud, self.var_threshold)
+        distances = pdist(projected)
+        if distances.size == 0 or not np.isfinite(distances).all() or distances.max() <= 0.0:
+            raise ValueError("projected cloud must contain distinct finite points")
+
+        # SCALE-NORMALISE: a loop is a shape property, not a size property.
+        self.diameter = float(distances.max())
+        projected = projected / self.diameter
+        self.m = int(projected.shape[1])
+
+        if "topology" in self.metrics:
+            self.dgms = self.pipeline.create_persistence_diagram(projected)["dgms"]
+
+        # Epsilon at the eps_density quantile of the pairwise distances. A
+        # non-positive radius means enough duplicate points that the graph would
+        # be empty; concept_geometry refuses the same condition.
+        ordered = np.sort(distances / self.diameter)
+        self.eps = float(ordered[min(int(self.eps_density * len(ordered)), len(ordered) - 1)])
+        if not np.isfinite(self.eps) or self.eps <= 0.0:
+            raise ValueError(
+                f"matched-density epsilon selection produced a non-positive radius "
+                f"(eps={self.eps!r}); too many duplicate points at "
+                f"eps_density={self.eps_density}"
+            )
+
+        if "curvature" in self.metrics:
+            self._measure_curvature(projected)
+
+    def _measure_curvature(self, projected: np.ndarray) -> None:
+        try:
+            graph = self.pipeline.create_epsilon_graph(projected, self.eps)
+            self.graph_diagnostics = _graph_diagnostics(graph)
+            values = np.asarray(
+                self.pipeline.compute_ollivier_ricci(graph)["raw_values"], dtype=float
+            )
+            if values.size == 0 or not np.isfinite(values).all():
+                self.curvature_error = "empty_or_nonfinite_curvature"
+            else:
+                self.curvature_values = values
+        except Exception as exc:
+            self.curvature_values = np.empty(0, dtype=float)
+            self.curvature_error = f"{type(exc).__name__}: {exc}"
+
+    def null(self, kind: str | None = None, seed: int | None = None, fit=None) -> "Manifold":
+        """Draw and measure one null cloud. See the module docstring for the model.
+
+        ``fit`` reuses a :func:`fit_low_rank_gaussian` result; ensembles must pass
+        it, because the fit depends only on ``self.cloud``.
+        """
+        resolve_null_kind(kind)
+        if fit is None:
+            fit = fit_low_rank_gaussian(self.cloud)
+        null_seed = int(self.rng.integers(1 << 30)) if seed is None else int(seed)
+        return Manifold(
+            pipeline=self.pipeline,
+            opt_activations=sample_low_rank_gaussian(fit, seed=null_seed),
+            label=f"null:{NULL_KIND}",
+            seed=null_seed,
+            eps_density=self.eps_density,
+            var_threshold=self.var_threshold,
+            metrics=self.metrics,
+        )
+
+    def __repr__(self):
+        return (
+            f"Manifold({self.label}: ID={self.intrinsic_dim:.2f}, m={self.m}, "
+            f"{len(self.curvature_values)} edges, metrics={self.metrics})"
+        )
+
+
 def build_null_ensemble(
     observed: Manifold,
     *,
-    kind: str,
     n_nulls: int,
     base_seed: int,
-    covariance_estimator: str,
     fit: Mapping[str, Any],
+    **null_kwargs: Any,
 ) -> tuple[list[Manifold], list[dict[str, Any]]]:
-    """Draw ``n_nulls`` nulls, keeping going past individual failures.
+    """Draw ``n_nulls`` nulls, continuing past individual failures.
 
-    Seeds are ``base_seed + index``, so a fixed ``base_seed`` reproduces the
-    whole ensemble. Returns the measured nulls and one record per failure; the
-    caller decides whether enough survived.
+    Seeds are ``base_seed + index``, so a fixed ``base_seed`` reproduces the whole
+    ensemble. Returns the measured nulls and one record per failure; the caller
+    decides whether enough survived.
     """
     nulls: list[Manifold] = []
     failures: list[dict[str, Any]] = []
     for index in range(n_nulls):
         seed = base_seed + index
         try:
-            nulls.append(
-                observed.null(
-                    kind=kind,
-                    seed=seed,
-                    covariance_estimator=covariance_estimator,
-                    fit=fit,
-                )
-            )
+            nulls.append(observed.null(seed=seed, fit=fit, **null_kwargs))
         except Exception as exc:
             failures.append(
                 {"index": index, "seed": seed, "error": f"{type(exc).__name__}: {exc}"}
@@ -629,36 +511,19 @@ def build_null_ensemble(
 
 
 # ---------------------------------------------------------------------------
-# 5. Comparison
+# Comparison
 # ---------------------------------------------------------------------------
-
-
-_TWO_SIDED_METRICS = frozenset(
-    {"curvature_mean_difference", "curvature_negative_fraction_difference"}
-)
-
-CURVATURE_UNAVAILABLE = {
-    "distribution_distance": float("nan"),
-    "mean_difference": float("nan"),
-    "negative_fraction_difference": float("nan"),
-    "absolute_negative_fraction_difference": float("nan"),
-    "frac_negative_difference": float("nan"),
-}
 
 
 def diagram_distance_pair(dgm1, dgm2) -> dict[str, float]:
     """Bottleneck and Wasserstein between two diagrams, NaN when persim refuses.
 
-    Infinite bars are stripped first; persim would otherwise warn and drop them
-    itself. A NaN here means the distance could not be computed, and callers
-    must treat it as an unmeasured metric rather than as a zero distance.
+    Infinite bars are stripped first. A NaN means the distance could not be
+    computed and must be treated as unmeasured, not as a zero distance.
     """
     a, b = _finite(dgm1), _finite(dgm2)
     values: dict[str, float] = {}
-    for name, function in (
-        ("wasserstein", persim.wasserstein),
-        ("bottleneck", persim.bottleneck),
-    ):
+    for name, function in (("wasserstein", persim.wasserstein), ("bottleneck", persim.bottleneck)):
         try:
             values[name] = float(function(a, b))
         except Exception:
@@ -669,10 +534,10 @@ def diagram_distance_pair(dgm1, dgm2) -> dict[str, float]:
 def curvature_distribution_difference(values1, values2) -> dict[str, float]:
     """Signed and absolute curvature-distribution comparisons.
 
-    ``negative_fraction_difference`` is signed: positive means the first cloud
-    has the larger negative-curvature fraction. ``frac_negative_difference`` is
-    the backward-compatible *absolute* alias read by topology_metric; it carries
-    no direction. All-NaN when either side has no usable edge curvatures.
+    ``negative_fraction_difference`` is signed: positive means the first cloud has
+    the larger negative-curvature fraction. ``frac_negative_difference`` is the
+    backward-compatible *absolute* alias read by topology_metric; it carries no
+    direction. All-NaN when either side has no usable edge curvatures.
     """
     c1 = np.asarray(values1, dtype=float)
     c2 = np.asarray(values2, dtype=float)
@@ -697,11 +562,7 @@ class ManifoldComparator:
         }
 
     def curvature_difference(self, m1, m2):
-        """Curvature comparison between two measured manifolds.
-
-        See :func:`curvature_distribution_difference` for the signed/absolute
-        contract.
-        """
+        """See :func:`curvature_distribution_difference` for the signed contract."""
         return curvature_distribution_difference(m1.curvature_values, m2.curvature_values)
 
     def compare(self, m1, m2, max_dim=1):
@@ -713,14 +574,14 @@ class ManifoldComparator:
             "curvature": self.curvature_difference(m1, m2),
         }
 
-    def _flatten_distances(self, m1, m2, max_dim, metrics: Sequence[str]) -> dict[str, float]:
+    def _distances(self, m1, m2, max_dim, metrics) -> dict[str, float]:
         """Named scalar distances between two manifolds. Metrics stay independent."""
         distances: dict[str, float] = {}
         comparison = self.compare(m1, m2, max_dim=max_dim)
         if "topology" in metrics:
-            for homology_dimension, values in comparison["diagram_distance"].items():
-                distances[f"{homology_dimension}_wasserstein"] = float(values["wasserstein"])
-                distances[f"{homology_dimension}_bottleneck"] = float(values["bottleneck"])
+            for dimension, values in comparison["diagram_distance"].items():
+                distances[f"{dimension}_wasserstein"] = float(values["wasserstein"])
+                distances[f"{dimension}_bottleneck"] = float(values["bottleneck"])
         if "curvature" in metrics:
             curvature = comparison["curvature"]
             distances["curvature_wasserstein"] = float(curvature["distribution_distance"])
@@ -731,152 +592,104 @@ class ManifoldComparator:
         return distances
 
     @staticmethod
-    def _median_or_nan(values: np.ndarray, two_sided: bool) -> float:
+    def _median(values, two_sided: bool) -> float:
         arr = np.asarray(values, dtype=float)
         if two_sided:
             arr = np.abs(arr)
         arr = arr[np.isfinite(arr)]
-        # An all-NaN row is how "this metric could not be measured for this
-        # object" is represented; it is not an anomaly worth warning about.
+        # An all-NaN row means "not measurable for this object", not an anomaly.
         return float(np.median(arr)) if arr.size else float("nan")
 
     def _loo_result(self, matrix: np.ndarray, name: str) -> dict[str, Any]:
         """Observed median distance to the nulls vs leave-one-out null medians.
 
-        Under the null every object is exchangeable, so each object's median
-        distance to the others is an exchangeable statistic and ranking the
-        observed one against the nulls gives a calibrated p-value.
+        Under the null all objects are exchangeable, so each object's median
+        distance to the others is exchangeable and ranking the observed one gives
+        a calibrated p-value.
         """
         two_sided = name in _TWO_SIDED_METRICS
-        null_matrix = matrix[1:, 1:]
-        result = empirical_pvalue(
-            self._median_or_nan(matrix[0, 1:], two_sided),
+        nulls = matrix[1:, 1:]
+        return empirical_pvalue(
+            self._median(matrix[0, 1:], two_sided),
             [
-                self._median_or_nan(np.delete(null_matrix[index], index), two_sided)
-                for index in range(null_matrix.shape[0])
+                self._median(np.delete(nulls[index], index), two_sided)
+                for index in range(nulls.shape[0])
             ],
-            direction="greater",
         )
-        result["metric_direction"] = "two_sided" if two_sided else "greater"
-        result["calibration_method"] = "exchangeable_loo_median_distance"
-        return result
 
-    def _pairwise_matrices(
-        self, objects: Sequence[Manifold], names: Sequence[str], max_dim: int, metrics: Sequence[str]
-    ) -> dict[str, np.ndarray]:
-        n = len(objects)
-        matrices = {name: np.full((n, n), np.nan, dtype=float) for name in names}
-        for i in range(n):
-            for j in range(i + 1, n):
-                for name, value in self._flatten_distances(
-                    objects[i], objects[j], max_dim, metrics
-                ).items():
-                    matrices[name][i, j] = value
-                    matrices[name][j, i] = value
-        return matrices
-
-    def _id_result(
-        self, observed: Manifold, nulls: Sequence[Manifold], *, inferential: bool
-    ) -> dict[str, Any]:
+    def _id_result(self, observed, nulls, *, inferential: bool) -> dict[str, Any]:
         """Intrinsic-dimension comparison, descriptive unless asked otherwise.
 
-        Descriptive mode reports the observed ID next to the null IDs and never
-        produces a p-value. Inferential mode ranks |observed - null centre|
-        against leave-one-out null deviations.
+        Descriptive mode reports the observed dimension in ``observed`` and the
+        null dimensions in ``null_values``, with no p-value. Inferential mode puts
+        ``|observed - null centre|`` in ``observed`` and ranks it against
+        leave-one-out null deviations.
         """
         observed_id = float(observed.intrinsic_dim)
         null_ids = np.asarray([float(null.intrinsic_dim) for null in nulls], dtype=float)
-        finite_ids = null_ids[np.isfinite(null_ids)]
+        finite = null_ids[np.isfinite(null_ids)]
 
         if not inferential:
-            differences = (
-                np.abs(observed_id - finite_ids)
-                if np.isfinite(observed_id) and finite_ids.size
-                else np.empty(0, dtype=float)
-            )
-            return {
-                "observed_intrinsic_dimension": observed_id,
-                "null_intrinsic_dimensions": null_ids.tolist(),
-                "absolute_observed_to_null_difference": float(np.median(differences))
-                if differences.size
-                else float("nan"),
-                "n_valid_nulls": int(finite_ids.size),
-                "pvalue": float("nan"),
-                "inference_available": False,
-                "failure_reason": (
-                    "TwoNN intrinsic dimension is high-variance at typical activation "
-                    "sample sizes; reported descriptively unless "
-                    "infer_intrinsic_dimension=True"
+            result = empirical_pvalue(observed_id, null_ids.tolist())
+            result.update(
+                pvalue=float("nan"),
+                minimum_attainable_pvalue=float("nan"),
+                inference_available=False,
+                failure_reason=(
+                    "TwoNN intrinsic dimension is high-variance at these sample "
+                    "sizes; reported descriptively unless infer_intrinsic_dimension=True"
                 ),
-                "calibration_method": "descriptive_twoNN",
-                "estimator_error": observed.intrinsic_dim_error,
-            }
-
-        if np.isfinite(observed_id) and finite_ids.size:
-            centre = float(np.median(finite_ids))
-            null_scores = [
-                abs(null_ids[index] - float(np.median(np.delete(finite_ids, index))))
-                if np.isfinite(null_ids[index]) and finite_ids.size > 1
-                else float("nan")
-                for index in range(null_ids.size)
-            ]
-            result = empirical_pvalue(abs(observed_id - centre), null_scores)
-        else:
-            result = unavailable_result(
-                "intrinsic dimension is non-finite for the observed cloud "
-                "or for every null draw"
             )
-        result.update(
-            {
-                "observed_intrinsic_dimension": observed_id,
-                "null_intrinsic_dimensions": null_ids.tolist(),
-                "calibration_method": "loo_null_center_deviation",
-                "estimator_error": observed.intrinsic_dim_error,
-            }
-        )
+        elif np.isfinite(observed_id) and finite.size:
+            centre = float(np.median(finite))
+            result = empirical_pvalue(
+                abs(observed_id - centre),
+                [
+                    abs(value - float(np.median(np.delete(finite, index))))
+                    if np.isfinite(value) and finite.size > 1
+                    else float("nan")
+                    for index, value in enumerate(null_ids)
+                ],
+            )
+        else:
+            result = unavailable(
+                "intrinsic dimension is non-finite for the observed cloud or every null"
+            )
+        result["estimator_error"] = observed.intrinsic_dim_error
         return result
 
     def compare_against_nulls(
         self,
         manifold,
-        kind="covariance_gaussian",
+        kind: str | None = None,
         n_nulls=30,
         base_seed=0,
         max_dim=1,
         metrics: Sequence[str] | None = None,
         infer_intrinsic_dimension: bool = False,
-        covariance_estimator: str | None = None,
     ):
-        """Compare a manifold against repeated draws from one null model.
+        """Compare a manifold against repeated draws from the low-rank null.
 
-        Pure with respect to ``manifold``: nothing is written back onto it.
-        The Gaussian fit is computed once and reused for every draw. Draws that
-        fail to measure are recorded in ``null_failures`` and excluded from the
-        statistics instead of aborting the ensemble. Every metric block carries
-        ``inference_available``, ``n_valid_nulls`` and
-        ``minimum_attainable_pvalue``, so a p-value is always readable against
-        the ensemble that produced it.
+        Pure with respect to ``manifold``: nothing is written back onto it. The
+        null is fitted once and reused for every draw. Draws that fail to measure
+        are recorded in ``failures`` and excluded rather than aborting.
         """
+        resolve_null_kind(kind)
         if n_nulls < MINIMUM_VALID_NULLS:
             raise ValueError(f"n_nulls must be at least {MINIMUM_VALID_NULLS}")
         if n_nulls < MINIMUM_NULLS_FOR_ALPHA_05:
             warnings.warn(
-                f"n_nulls={n_nulls} caps every empirical p-value at a minimum of "
-                f"{1.0 / (n_nulls + 1):.3f}; alpha=0.05 is unreachable below "
-                f"n_nulls={MINIMUM_NULLS_FOR_ALPHA_05}.",
+                f"n_nulls={n_nulls} caps every p-value at a minimum of "
+                f"{1.0 / (n_nulls + 1):.3f}; alpha=0.05 needs at least "
+                f"{MINIMUM_NULLS_FOR_ALPHA_05}.",
                 stacklevel=2,
             )
 
         selected = _normalize_metrics(metrics if metrics is not None else manifold.metrics)
-        estimator = (
-            getattr(manifold, "covariance_estimator", "ledoit_wolf")
-            if covariance_estimator is None
-            else str(covariance_estimator)
-        )
-
         # Re-measure into a new object rather than mutating the caller's: a
-        # different metric subset or estimator is a different measurement.
-        if set(manifold.metrics) != set(selected) or manifold.covariance_estimator != estimator:
+        # different metric subset is a different measurement.
+        observed = manifold
+        if set(manifold.metrics) != set(selected):
             observed = Manifold(
                 pipeline=manifold.pipeline,
                 opt_activations=manifold.cloud,
@@ -885,106 +698,63 @@ class ManifoldComparator:
                 eps_density=manifold.eps_density,
                 var_threshold=manifold.var_threshold,
                 metrics=selected,
-                covariance_estimator=estimator,
             )
-        else:
-            observed = manifold
 
-        resolved_kind = "covariance_gaussian" if kind == "noise" else kind
-        fit = fit_null_gaussian(
-            observed.cloud, kind=resolved_kind, covariance_estimator=estimator
+        fit = fit_low_rank_gaussian(observed.cloud)
+        nulls, failures = build_null_ensemble(
+            observed, n_nulls=n_nulls, base_seed=base_seed, fit=fit
         )
-        match = fit["diagnostics"]["covariance_match"]
-        if resolved_kind == "covariance_gaussian" and not match["is_matched"]:
-            # Once per ensemble, not once per draw.
+        if failures:
             warnings.warn(
-                "the fitted covariance null is not covariance-matched "
-                f"(relative Frobenius difference {match['relative_frobenius_difference']:.2f}, "
-                f"effective-rank inflation x{match['effective_rank_inflation']:.1f}). "
-                "With n_features close to or above n_samples the estimator shrinks "
-                "toward isotropy, so a rejection is partly a rejection of isotropy "
-                "rather than evidence against all Gaussians with this covariance.",
+                f"{len(failures)} of {n_nulls} null draws failed to measure; "
+                "statistics use the surviving draws only (see 'failures' and each "
+                "metric's 'n_valid_nulls').",
                 stacklevel=2,
             )
 
-        nulls, null_failures = build_null_ensemble(
-            observed,
-            kind=resolved_kind,
-            n_nulls=n_nulls,
-            base_seed=base_seed,
-            covariance_estimator=estimator,
-            fit=fit,
-        )
-        if null_failures:
-            warnings.warn(
-                f"{len(null_failures)} of {n_nulls} null draws failed to measure; "
-                "statistics use the surviving draws only (see 'null_failures' and "
-                "each metric's 'n_valid_nulls').",
-                stacklevel=2,
-            )
-
-        results: dict[str, Any] = {}
         if len(nulls) < MINIMUM_VALID_NULLS:
             reason = (
                 f"only {len(nulls)} of {n_nulls} null draws could be measured; "
                 f"at least {MINIMUM_VALID_NULLS} are required"
             )
-            # Comparing the observed manifold with itself yields exactly the
-            # metric names a real comparison would have produced.
+            # A self-comparison yields exactly the names a real comparison would.
             names = ["id_difference"] if "intrinsic_dimension" in selected else []
-            names += list(self._flatten_distances(observed, observed, max_dim, selected))
-            results = {name: unavailable_result(reason) for name in names}
+            names += list(self._distances(observed, observed, max_dim, selected))
+            results = {name: unavailable(reason) for name in names}
+            diagnostics = None
         else:
+            results = {}
             if "intrinsic_dimension" in selected:
                 results["id_difference"] = self._id_result(
                     observed, nulls, inferential=infer_intrinsic_dimension
                 )
             objects = [observed, *nulls]
-            names = list(self._flatten_distances(observed, nulls[0], max_dim, selected))
-            for name, matrix in self._pairwise_matrices(
-                objects, names, max_dim, selected
-            ).items():
-                results[name] = self._loo_result(matrix, name)
+            size = len(objects)
+            matrices = {
+                name: np.full((size, size), np.nan)
+                for name in self._distances(observed, nulls[0], max_dim, selected)
+            }
+            for i in range(size):
+                for j in range(i + 1, size):
+                    for name, value in self._distances(
+                        objects[i], objects[j], max_dim, selected
+                    ).items():
+                        matrices[name][i, j] = matrices[name][j, i] = value
+            results.update(
+                {name: self._loo_result(matrix, name) for name, matrix in matrices.items()}
+            )
+            diagnostics = null_diagnostics(fit, nulls[0].cloud)
 
         return {
-            "null_kind": resolved_kind,
-            "n_nulls": n_nulls,
-            "n_nulls_measured": len(nulls),
-            "null_failures": null_failures,
+            "null_kind": NULL_KIND,
+            "n_requested": n_nulls,
+            "n_drawn": len(nulls),
+            "failures": failures,
             "base_seed": base_seed,
             "max_dim": max_dim,
             "metrics_requested": list(selected),
             "infer_intrinsic_dimension": bool(infer_intrinsic_dimension),
-            "covariance_estimator": estimator,
-            "null_fit_diagnostics": fit["diagnostics"],
+            "null_diagnostics": diagnostics,
             "observed_graph_diagnostics": observed.graph_diagnostics,
             "metrics": results,
-        }
-
-    def compare_both_nulls(
-        self,
-        manifold,
-        n_nulls=30,
-        base_seed=100,
-        max_dim=1,
-        metrics: Sequence[str] | None = None,
-        infer_intrinsic_dimension: bool = False,
-        covariance_estimator: str | None = None,
-    ):
-        """Evaluate the manifold against both Gaussian null models.
-
-        The two ensembles use disjoint seed ranges so their draws are independent.
-        """
-        return {
-            kind: self.compare_against_nulls(
-                manifold,
-                kind=kind,
-                n_nulls=n_nulls,
-                base_seed=base_seed + offset,
-                max_dim=max_dim,
-                metrics=metrics,
-                infer_intrinsic_dimension=infer_intrinsic_dimension,
-                covariance_estimator=covariance_estimator,
-            )
-            for offset, kind in ((0, "covariance_gaussian"), (n_nulls, "isotropic_gaussian"))
         }

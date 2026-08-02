@@ -46,10 +46,13 @@ from null_cloud import (
     _graph_diagnostics,
     curvature_distribution_difference,
     diagram_distance_pair,
+    NULL_KIND,
     empirical_pvalue,
-    fit_null_gaussian,
-    sample_null_cloud,
-    unavailable_result,
+    fit_low_rank_gaussian,
+    null_diagnostics,
+    resolve_null_kind,
+    sample_low_rank_gaussian,
+    unavailable,
 )
 
 
@@ -77,42 +80,22 @@ RUN_COLUMNS = [
     "h0_total_persistence",
     "h1_max_persistence",
     "h1_total_persistence",
-    "iso_h0_bottleneck",
-    "iso_h0_wasserstein",
-    "iso_h0_robust_z",
-    "iso_h0_pvalue",
-    "iso_h1_bottleneck",
-    "iso_h1_wasserstein",
-    "iso_h1_robust_z",
-    "iso_h1_pvalue",
-    "iso_id_difference",
-    "iso_id_robust_z",
-    "iso_id_pvalue",
-    "cov_h0_bottleneck",
-    "cov_h0_wasserstein",
-    "cov_h0_robust_z",
-    "cov_h0_pvalue",
-    "cov_h1_bottleneck",
-    "cov_h1_wasserstein",
-    "cov_h1_robust_z",
-    "cov_h1_pvalue",
-    "cov_id_difference",
-    "cov_id_robust_z",
-    "cov_id_pvalue",
+    # One null model, so one set of comparison columns.
+    "h0_bottleneck",
+    "h0_wasserstein",
+    "h0_pvalue",
+    "h1_bottleneck",
+    "h1_wasserstein",
+    "h1_pvalue",
+    "id_difference",
+    "id_pvalue",
+    "null_rank",
+    "null_spectrum_error",
     "curvature_enabled",
     "curvature_wasserstein",
+    "curvature_wasserstein_pvalue",
     "curvature_mean_difference",
     "curvature_negative_fraction_difference",
-    "iso_curvature_wasserstein",
-    "iso_curvature_wasserstein_robust_z",
-    "iso_curvature_wasserstein_pvalue",
-    "iso_curvature_mean_difference",
-    "iso_curvature_negative_fraction_difference",
-    "cov_curvature_wasserstein",
-    "cov_curvature_wasserstein_robust_z",
-    "cov_curvature_wasserstein_pvalue",
-    "cov_curvature_mean_difference",
-    "cov_curvature_negative_fraction_difference",
     "graph_n_nodes",
     "graph_n_edges",
     "graph_n_components",
@@ -502,29 +485,25 @@ class CalibrationManifold(Manifold):
 
     def null(
         self,
-        kind: str = "covariance_gaussian",
+        kind: str | None = None,
         seed: int | None = None,
-        covariance_estimator: str | None = None,
         fit: Mapping[str, Any] | None = None,
         enable_curvature: bool | None = None,
     ) -> "CalibrationManifold":
-        """Draw and measure one null cloud.
+        """Draw and measure one null cloud from the canonical low-rank generator.
 
-        ``fit`` reuses a :func:`fit_null_gaussian` result so an ensemble fits the
-        Gaussian once. ``enable_curvature`` selects curvature for this draw only
-        and never mutates the observed manifold.
+        ``fit`` reuses a :func:`null_cloud.fit_low_rank_gaussian` result so an
+        ensemble fits once. ``enable_curvature`` selects curvature for this draw
+        only and never mutates the observed manifold.
         """
-        estimator = covariance_estimator or self.covariance_estimator
-        resolved_kind = "covariance_gaussian" if kind == "noise" else kind
+        resolve_null_kind(kind)
         if fit is None:
-            fit = fit_null_gaussian(
-                self.cloud, kind=resolved_kind, covariance_estimator=estimator
-            )
+            fit = fit_low_rank_gaussian(self.cloud)
         null_seed = int(self.rng.integers(1 << 30)) if seed is None else int(seed)
         return CalibrationManifold(
             self.pipeline,
-            sample_null_cloud(fit, sample_count=len(self.cloud), seed=null_seed),
-            label=f"null:{resolved_kind}",
+            sample_low_rank_gaussian(fit, seed=null_seed),
+            label=f"null:{NULL_KIND}",
             seed=null_seed,
             eps_density=self.eps_density,
             var_threshold=self.var_threshold,
@@ -631,50 +610,45 @@ def scores_from_matrix(matrix: np.ndarray) -> dict[str, Any]:
 def robust_null_comparison(
     manifold: CalibrationManifold,
     *,
-    kind: str,
     n_nulls: int,
     base_seed: int,
     include_curvature: bool,
     curvature_nulls: int = 5,
 ) -> dict[str, Any]:
-    """Repeated-null empirical inference for one manifold and one null model.
+    """Repeated-null empirical inference against the low-rank Gaussian null.
 
-    The Gaussian is fitted once and reused for every draw. Topology and ID nulls
-    are measured without Ricci; curvature uses a smaller ensemble because
+    The null is fitted once and reused for every draw. Topology and ID nulls are
+    measured without Ricci; curvature uses a smaller ensemble because
     Ollivier-Ricci dominates runtime. Draws that fail to measure are recorded and
     excluded rather than aborting. ``manifold`` is never mutated.
     """
     if n_nulls < 3:
         raise ValueError("n_nulls must be at least 3")
 
-    fit = fit_null_gaussian(
-        manifold.cloud,
-        kind="covariance_gaussian" if kind == "noise" else kind,
-        covariance_estimator=manifold.covariance_estimator,
-    )
-
-    nulls, failures = _draw_nulls(manifold, kind, n_nulls, base_seed, fit, False)
-
-    results: dict[str, Any] = {}
+    fit = fit_low_rank_gaussian(manifold.cloud)
+    nulls, failures = _draw_nulls(manifold, n_nulls, base_seed, fit, False)
     metric_names = list(
         flatten_calibration_distances(manifold, manifold, include_curvature=False)
     )
+
     if len(nulls) < 3:
         reason = (
             f"only {len(nulls)} of {n_nulls} null draws could be measured; "
             "at least 3 are required"
         )
-        results = {name: unavailable_result(reason) for name in metric_names}
+        results = {name: unavailable(reason) for name in metric_names}
+        diagnostics = None
     else:
-        objects = [manifold, *nulls]
-        matrices = _pairwise_matrices(objects, metric_names, include_curvature=False)
+        matrices = _pairwise_matrices(
+            [manifold, *nulls], metric_names, include_curvature=False
+        )
         results = {name: scores_from_matrix(matrix) for name, matrix in matrices.items()}
+        diagnostics = null_diagnostics(fit, nulls[0].cloud)
 
     if include_curvature and not manifold.curvature_skipped:
         results.update(
             _curvature_comparison(
                 manifold,
-                kind=kind,
                 n_nulls=max(3, min(int(curvature_nulls), n_nulls)),
                 base_seed=base_seed + 10_000,
                 fit=fit,
@@ -682,19 +656,18 @@ def robust_null_comparison(
         )
 
     return {
-        "null_kind": kind,
-        "n_nulls": n_nulls,
-        "n_nulls_measured": len(nulls),
-        "null_failures": failures,
+        "null_kind": NULL_KIND,
+        "n_requested": n_nulls,
+        "n_drawn": len(nulls),
+        "failures": failures,
         "base_seed": base_seed,
-        "covariance_match": fit["diagnostics"]["covariance_match"],
+        "null_diagnostics": diagnostics,
         "metrics": results,
     }
 
 
 def _draw_nulls(
     manifold: CalibrationManifold,
-    kind: str,
     count: int,
     base_seed: int,
     fit: Mapping[str, Any],
@@ -707,9 +680,7 @@ def _draw_nulls(
         seed = base_seed + index
         try:
             nulls.append(
-                manifold.null(
-                    kind=kind, seed=seed, fit=fit, enable_curvature=enable_curvature
-                )
+                manifold.null(seed=seed, fit=fit, enable_curvature=enable_curvature)
             )
         except Exception as exc:
             failures.append(
@@ -742,7 +713,6 @@ def _pairwise_matrices(
 def _curvature_comparison(
     manifold: CalibrationManifold,
     *,
-    kind: str,
     n_nulls: int,
     base_seed: int,
     fit: Mapping[str, Any],
@@ -752,10 +722,10 @@ def _curvature_comparison(
     The signed mean and negative-fraction differences are descriptive summaries
     of the observed cloud against its nulls, not tests, so they carry no p-value.
     """
-    nulls, _ = _draw_nulls(manifold, kind, n_nulls, base_seed, fit, True)
+    nulls, _ = _draw_nulls(manifold, n_nulls, base_seed, fit, True)
     if len(nulls) < 3:
         return {
-            "curvature_wasserstein": unavailable_result(
+            "curvature_wasserstein": unavailable(
                 f"only {len(nulls)} curvature null draws could be measured"
             )
         }
@@ -905,67 +875,44 @@ def run_single(
         row["selected_epsilon"] = float(manifold.eps)
 
         include_curvature = enable_curvature and not manifold.curvature_skipped
-        iso = robust_null_comparison(
+        comparison = robust_null_comparison(
             manifold,
-            kind="isotropic_gaussian",
             n_nulls=n_nulls,
             base_seed=null_base_seed,
             include_curvature=include_curvature,
             curvature_nulls=curvature_nulls,
         )
-        cov = robust_null_comparison(
-            manifold,
-            kind="covariance_gaussian",
-            n_nulls=n_nulls,
-            base_seed=null_base_seed + n_nulls,
-            include_curvature=include_curvature,
-            curvature_nulls=curvature_nulls,
+        metrics = comparison["metrics"]
+        row["h0_bottleneck"] = _metric_or_nan(metrics, "H0_bottleneck", "observed")
+        row["h0_wasserstein"] = _metric_or_nan(metrics, "H0_wasserstein", "observed")
+        row["h0_pvalue"] = _metric_or_nan(metrics, "H0_bottleneck", "pvalue")
+        row["h1_bottleneck"] = _metric_or_nan(metrics, "H1_bottleneck", "observed")
+        row["h1_wasserstein"] = _metric_or_nan(metrics, "H1_wasserstein", "observed")
+        row["h1_pvalue"] = _metric_or_nan(metrics, "H1_bottleneck", "pvalue")
+        row["id_difference"] = _metric_or_nan(metrics, "id_difference", "observed")
+        row["id_pvalue"] = _metric_or_nan(metrics, "id_difference", "pvalue")
+        row["curvature_wasserstein"] = _metric_or_nan(
+            metrics, "curvature_wasserstein", "observed"
+        )
+        row["curvature_wasserstein_pvalue"] = _metric_or_nan(
+            metrics, "curvature_wasserstein", "pvalue"
+        )
+        row["curvature_mean_difference"] = _metric_or_nan(
+            metrics, "signed_mean_curvature_difference", "observed"
+        )
+        row["curvature_negative_fraction_difference"] = _metric_or_nan(
+            metrics, "signed_negative_fraction_difference", "observed"
         )
 
-        for prefix, result in (("iso", iso), ("cov", cov)):
-            metrics = result["metrics"]
-            row[f"{prefix}_h0_bottleneck"] = _metric_or_nan(metrics, "H0_bottleneck", "observed_score")
-            row[f"{prefix}_h0_wasserstein"] = _metric_or_nan(metrics, "H0_wasserstein", "observed_score")
-            row[f"{prefix}_h0_robust_z"] = _metric_or_nan(metrics, "H0_bottleneck", "robust_z")
-            row[f"{prefix}_h0_pvalue"] = _metric_or_nan(metrics, "H0_bottleneck", "pvalue")
-            row[f"{prefix}_h1_bottleneck"] = _metric_or_nan(metrics, "H1_bottleneck", "observed_score")
-            row[f"{prefix}_h1_wasserstein"] = _metric_or_nan(metrics, "H1_wasserstein", "observed_score")
-            row[f"{prefix}_h1_robust_z"] = _metric_or_nan(metrics, "H1_bottleneck", "robust_z")
-            row[f"{prefix}_h1_pvalue"] = _metric_or_nan(metrics, "H1_bottleneck", "pvalue")
-            row[f"{prefix}_id_difference"] = _metric_or_nan(metrics, "id_difference", "observed_score")
-            row[f"{prefix}_id_robust_z"] = _metric_or_nan(metrics, "id_difference", "robust_z")
-            row[f"{prefix}_id_pvalue"] = _metric_or_nan(metrics, "id_difference", "pvalue")
-            row[f"{prefix}_curvature_wasserstein"] = _metric_or_nan(
-                metrics, "curvature_wasserstein", "observed_score"
-            )
-            row[f"{prefix}_curvature_wasserstein_robust_z"] = _metric_or_nan(
-                metrics, "curvature_wasserstein", "robust_z"
-            )
-            row[f"{prefix}_curvature_wasserstein_pvalue"] = _metric_or_nan(
-                metrics, "curvature_wasserstein", "pvalue"
-            )
-            row[f"{prefix}_curvature_mean_difference"] = _metric_or_nan(
-                metrics, "signed_mean_curvature_difference", "observed_score"
-            )
-            row[f"{prefix}_curvature_negative_fraction_difference"] = _metric_or_nan(
-                metrics, "signed_negative_fraction_difference", "observed_score"
-            )
+        diagnostics = comparison["null_diagnostics"] or {}
+        row["null_rank"] = float(diagnostics.get("rank", float("nan")))
+        row["null_spectrum_error"] = float(
+            diagnostics.get("relative_spectrum_error", float("nan"))
+        )
 
-        if include_curvature:
-            # Observed cloud curvature summaries vs first isotropic null draw are
-            # already in the robust table; also store raw observed distribution distance.
-            row["curvature_wasserstein"] = row["iso_curvature_wasserstein"]
-            row["curvature_mean_difference"] = row["iso_curvature_mean_difference"]
-            row["curvature_negative_fraction_difference"] = row[
-                "iso_curvature_negative_fraction_difference"
-            ]
-        else:
-            row["curvature_wasserstein"] = float("nan")
-            row["curvature_mean_difference"] = float("nan")
-            row["curvature_negative_fraction_difference"] = float("nan")
-            if enable_curvature and manifold.curvature_error:
-                row["failure"] = "curvature_skipped"
-                row["failure_detail"] = str(manifold.curvature_error)
+        if not include_curvature and enable_curvature and manifold.curvature_error:
+            row["failure"] = "curvature_skipped"
+            row["failure_detail"] = str(manifold.curvature_error)
 
     except Exception as exc:
         row["failure"] = type(exc).__name__
@@ -1023,12 +970,9 @@ def run_benchmark(config: Mapping[str, Any]) -> pd.DataFrame:
 
 
 REJECTION_COLUMNS = (
-    ("reject_iso_h0", "iso_h0_pvalue"),
-    ("reject_iso_h1", "iso_h1_pvalue"),
-    ("reject_iso_id", "iso_id_pvalue"),
-    ("reject_cov_h0", "cov_h0_pvalue"),
-    ("reject_cov_h1", "cov_h1_pvalue"),
-    ("reject_cov_id", "cov_id_pvalue"),
+    ("reject_h0", "h0_pvalue"),
+    ("reject_h1", "h1_pvalue"),
+    ("reject_id", "id_pvalue"),
 )
 
 
@@ -1189,57 +1133,31 @@ def compute_pipeline_benchmark(
         "reason": None if null_scored else "insufficient seeds for reliable rejection-rate estimates",
     }
     if null_scored:
-        iso = _subset(frame, dataset="isotropic_gaussian", noise=0.0, pca_mode=production_mode)
-        spiked = _subset(frame, dataset="spiked_gaussian", noise=0.0, pca_mode=production_mode)
+        # Linear-Gaussian datasets must not reject their own matched null; the
+        # nonlinear ones should. With a single null there is no iso-vs-cov
+        # asymmetry to score, so false-positive control is measured on every
+        # dataset the null is supposed to explain.
+        gaussian_like = pd.concat(
+            [
+                _subset(frame, dataset=name, noise=0.0, pca_mode=production_mode)
+                for name in ("isotropic_gaussian", "spiked_gaussian")
+            ]
+        )
         circle = _subset(frame, dataset="circle", noise=0.0, pca_mode=production_mode)
         clusters = _subset(frame, dataset="two_clusters", noise=0.0, pca_mode=production_mode)
 
-        fpr_h0 = _rate(iso, "reject_iso_h0")
-        fpr_h1 = _rate(iso, "reject_iso_h1")
-        fpr_id = _rate(iso, "reject_iso_id")
-        power_h1 = _rate(circle, "reject_iso_h1")
-        power_h0 = _rate(clusters, "reject_iso_h0")
-
-        spiked_iso = float(
-            np.mean(
-                [
-                    _rate(spiked, "reject_iso_h0"),
-                    _rate(spiked, "reject_iso_h1"),
-                    _rate(spiked, "reject_iso_id"),
-                ]
-            )
-        )
-        spiked_cov = float(
-            np.mean(
-                [
-                    _rate(spiked, "reject_cov_h0"),
-                    _rate(spiked, "reject_cov_h1"),
-                    _rate(spiked, "reject_cov_id"),
-                ]
-            )
-        )
-        # Keep axis-specific rates visible; asymmetry uses mean rates (not OR-any).
-        asym = _clip01((spiked_iso - spiked_cov) / 0.50)
+        fpr_h0 = _rate(gaussian_like, "reject_h0")
+        fpr_h1 = _rate(gaussian_like, "reject_h1")
+        fpr_id = _rate(gaussian_like, "reject_id")
+        power_h1 = _rate(circle, "reject_h1")
+        power_h0 = _rate(clusters, "reject_h0")
 
         tests = {
-            "iso_fpr_h0": {"value": fpr_h0, "unit": _clip01(1.0 - fpr_h0 / 0.10), "kind": "fpr"},
-            "iso_fpr_h1": {"value": fpr_h1, "unit": _clip01(1.0 - fpr_h1 / 0.10), "kind": "fpr"},
-            "iso_fpr_id": {"value": fpr_id, "unit": _clip01(1.0 - fpr_id / 0.10), "kind": "fpr"},
+            "gaussian_fpr_h0": {"value": fpr_h0, "unit": _clip01(1.0 - fpr_h0 / 0.10), "kind": "fpr"},
+            "gaussian_fpr_h1": {"value": fpr_h1, "unit": _clip01(1.0 - fpr_h1 / 0.10), "kind": "fpr"},
+            "gaussian_fpr_id": {"value": fpr_id, "unit": _clip01(1.0 - fpr_id / 0.10), "kind": "fpr"},
             "circle_power_h1": {"value": power_h1, "unit": _clip01(power_h1 / 0.80), "kind": "power"},
             "cluster_power_h0": {"value": power_h0, "unit": _clip01(power_h0 / 0.80), "kind": "power"},
-            "spiked_asymmetry": {
-                "value": spiked_iso - spiked_cov,
-                "iso_mean": spiked_iso,
-                "cov_mean": spiked_cov,
-                "iso_h0": _rate(spiked, "reject_iso_h0"),
-                "iso_h1": _rate(spiked, "reject_iso_h1"),
-                "iso_id": _rate(spiked, "reject_iso_id"),
-                "cov_h0": _rate(spiked, "reject_cov_h0"),
-                "cov_h1": _rate(spiked, "reject_cov_h1"),
-                "cov_id": _rate(spiked, "reject_cov_id"),
-                "unit": asym,
-                "kind": "asymmetry",
-            },
         }
         null_unit = float(np.mean([item["unit"] for item in tests.values()]))
         null_earned = 20.0 * null_unit
@@ -1589,22 +1507,13 @@ def render_html_report(
             for name, test in null["tests"].items()
         )
         null_block = f"""
-        <p>Scored with {null['n_seeds']} seeds. Axis-specific rates are kept separate.</p>
+        <p>Scored with {null['n_seeds']} seeds against the single low-rank Gaussian
+        null. Axis-specific rates are kept separate. False-positive rates are
+        measured on the linear-Gaussian datasets the null is meant to explain
+        (isotropic and spiked); power is measured on the nonlinear ones.</p>
         <table><thead><tr><th>Test</th><th>Value</th><th>Unit score</th><th>Kind</th></tr></thead>
         <tbody>{null_rows}</tbody></table>
         """
-        spiked = null["tests"].get("spiked_asymmetry", {})
-        if spiked:
-            null_block += (
-                "<p>Spiked rates — iso "
-                f"H0={spiked.get('iso_h0', float('nan')):.2f}, "
-                f"H1={spiked.get('iso_h1', float('nan')):.2f}, "
-                f"ID={spiked.get('iso_id', float('nan')):.2f}; cov "
-                f"H0={spiked.get('cov_h0', float('nan')):.2f}, "
-                f"H1={spiked.get('cov_h1', float('nan')):.2f}, "
-                f"ID={spiked.get('cov_id', float('nan')):.2f}. "
-                "Asymmetry uses the mean iso−cov gap (not an OR-any rejection).</p>"
-            )
     else:
         null_block = (
             "<p><strong>Null calibration: N/A</strong><br>"
