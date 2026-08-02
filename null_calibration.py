@@ -60,7 +60,6 @@ DEFAULT_CONFIG = PROJECT_ROOT / "null_calibration.yaml"
 MIN_SEEDS_FOR_RATE_CLAIMS = 10
 MIN_CURVATURE_FOR_REPORT = 10
 PRODUCTION_PCA_DEFAULT = "variance_95"
-DEPLOYABLE_PCA_MODES = ("none", "variance_95", "parallel_analysis")
 
 PCA_MODES = ("none", "variance_95", "parallel_analysis", "oracle")
 
@@ -240,18 +239,6 @@ DATASET_SPECS: dict[str, DatasetSpec] = {
         notes="Tree-like geometry; lack of H1 is not lack of structure.",
     ),
 }
-
-
-def dataset_metadata(name: str) -> dict[str, Any]:
-    spec = DATASET_SPECS[name]
-    return {
-        "name": spec.name,
-        "expected_intrinsic_dimension": spec.expected_intrinsic_dimension,
-        "oracle_pca_components": spec.oracle_pca_components,
-        "expected_homology": dict(spec.expected_homology),
-        "main_signal": spec.main_signal,
-        "notes": spec.notes,
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -540,11 +527,6 @@ def persistence_summaries(dgms: list[np.ndarray]) -> dict[str, float]:
     return out
 
 
-def _safe_diagram_distance(d1: np.ndarray, d2: np.ndarray) -> dict[str, float]:
-    """Bottleneck / Wasserstein between two diagrams; NaN when persim refuses."""
-    return diagram_distance_pair(d1, d2)
-
-
 def _safe_curvature_difference(m1, m2) -> dict[str, float]:
     """Curvature comparison, or all-NaN when either side has no usable edges."""
     if getattr(m1, "curvature_skipped", False) or getattr(m2, "curvature_skipped", False):
@@ -564,7 +546,7 @@ def flatten_calibration_distances(
     }
     for dim in (0, 1):
         if dim < len(m1.dgms) and dim < len(m2.dgms):
-            values = _safe_diagram_distance(m1.dgms[dim], m2.dgms[dim])
+            values = diagram_distance_pair(m1.dgms[dim], m2.dgms[dim])
         else:
             values = {"wasserstein": float("nan"), "bottleneck": float("nan")}
         distances[f"H{dim}_wasserstein"] = values["wasserstein"]

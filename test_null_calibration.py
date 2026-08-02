@@ -249,16 +249,11 @@ def test_report_html_is_sole_output(tmp_path):
 
 def test_empty_diagrams_and_metric_failures_are_graceful():
     empty = np.empty((0, 2), dtype=float)
-    distances = nc._safe_diagram_distance(empty, empty)
+    distances = nc.diagram_distance_pair(empty, empty)
     assert np.isfinite(distances["wasserstein"]) or np.isnan(distances["wasserstein"])
-    m1 = type("M", (), {})()
-    m2 = type("M", (), {})()
-    m1.curvature_skipped = True
-    m2.curvature_skipped = True
-    m1.curvature_values = np.empty(0)
-    m2.curvature_values = np.empty(0)
-    curv = nc._safe_curvature_difference(m1, m2)
-    assert np.isnan(curv["distribution_distance"])
+    skipped = type("M", (), {"curvature_skipped": True, "curvature_values": np.empty(0)})()
+    curvature = nc._safe_curvature_difference(skipped, skipped)
+    assert np.isnan(curvature["distribution_distance"])
 
 
 # ---------------------------------------------------------------------------
