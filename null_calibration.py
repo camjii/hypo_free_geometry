@@ -40,10 +40,12 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import radius_neighbors_graph
 
 from null_cloud import (
+    CURVATURE_UNAVAILABLE,
     Manifold,
-    ManifoldComparator,
     _finite,
     _graph_diagnostics,
+    curvature_distribution_difference,
+    diagram_distance_pair,
     empirical_pvalue,
     fit_null_gaussian,
     sample_null_cloud,
@@ -559,25 +561,16 @@ def persistence_summaries(dgms: list[np.ndarray]) -> dict[str, float]:
     return out
 
 
-_COMPARATOR = ManifoldComparator()
-
-
 def _safe_diagram_distance(d1: np.ndarray, d2: np.ndarray) -> dict[str, float]:
     """Bottleneck / Wasserstein between two diagrams; NaN when persim refuses."""
-    a, b = _finite(d1), _finite(d2)
-    return _COMPARATOR.diagram_distance(
-        type("D", (), {"dgms": [a]})(), type("D", (), {"dgms": [b]})(), max_dim=0
-    )["H0"]
+    return diagram_distance_pair(d1, d2)
 
 
 def _safe_curvature_difference(m1, m2) -> dict[str, float]:
     """Curvature comparison, or all-NaN when either side has no usable edges."""
     if getattr(m1, "curvature_skipped", False) or getattr(m2, "curvature_skipped", False):
-        return _COMPARATOR.curvature_difference(
-            type("C", (), {"curvature_values": np.empty(0)})(),
-            type("C", (), {"curvature_values": np.empty(0)})(),
-        )
-    return _COMPARATOR.curvature_difference(m1, m2)
+        return dict(CURVATURE_UNAVAILABLE)
+    return curvature_distribution_difference(m1.curvature_values, m2.curvature_values)
 
 
 def flatten_calibration_distances(

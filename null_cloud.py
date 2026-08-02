@@ -637,7 +637,7 @@ _TWO_SIDED_METRICS = frozenset(
     {"curvature_mean_difference", "curvature_negative_fraction_difference"}
 )
 
-_CURVATURE_UNAVAILABLE = {
+CURVATURE_UNAVAILABLE = {
     "distribution_distance": float("nan"),
     "mean_difference": float("nan"),
     "negative_fraction_difference": float("nan"),
@@ -646,49 +646,63 @@ _CURVATURE_UNAVAILABLE = {
 }
 
 
+def diagram_distance_pair(dgm1, dgm2) -> dict[str, float]:
+    """Bottleneck and Wasserstein between two diagrams, NaN when persim refuses.
+
+    Infinite bars are stripped first; persim would otherwise warn and drop them
+    itself. A NaN here means the distance could not be computed, and callers
+    must treat it as an unmeasured metric rather than as a zero distance.
+    """
+    a, b = _finite(dgm1), _finite(dgm2)
+    values: dict[str, float] = {}
+    for name, function in (
+        ("wasserstein", persim.wasserstein),
+        ("bottleneck", persim.bottleneck),
+    ):
+        try:
+            values[name] = float(function(a, b))
+        except Exception:
+            values[name] = float("nan")
+    return values
+
+
+def curvature_distribution_difference(values1, values2) -> dict[str, float]:
+    """Signed and absolute curvature-distribution comparisons.
+
+    ``negative_fraction_difference`` is signed: positive means the first cloud
+    has the larger negative-curvature fraction. ``frac_negative_difference`` is
+    the backward-compatible *absolute* alias read by topology_metric; it carries
+    no direction. All-NaN when either side has no usable edge curvatures.
+    """
+    c1 = np.asarray(values1, dtype=float)
+    c2 = np.asarray(values2, dtype=float)
+    if c1.size == 0 or c2.size == 0 or not np.isfinite(c1).all() or not np.isfinite(c2).all():
+        return dict(CURVATURE_UNAVAILABLE)
+    signed = float((c1 < 0).mean() - (c2 < 0).mean())
+    return {
+        "distribution_distance": float(wasserstein_distance(c1, c2)),
+        "mean_difference": float(c1.mean() - c2.mean()),
+        "negative_fraction_difference": signed,
+        "absolute_negative_fraction_difference": abs(signed),
+        "frac_negative_difference": abs(signed),
+    }
+
+
 class ManifoldComparator:
     def diagram_distance(self, m1, m2, max_dim=1):
         """Per homology dimension. Never combined -- H0 and H1 stay separate."""
-        out = {}
-        for k in range(min(max_dim + 1, len(m1.dgms), len(m2.dgms))):
-            a, b = _finite(m1.dgms[k]), _finite(m2.dgms[k])
-            values = {}
-            for name, function in (
-                ("wasserstein", persim.wasserstein),
-                ("bottleneck", persim.bottleneck),
-            ):
-                try:
-                    values[name] = float(function(a, b))
-                except Exception:
-                    values[name] = float("nan")
-            out[f"H{k}"] = values
-        return out
+        return {
+            f"H{k}": diagram_distance_pair(m1.dgms[k], m2.dgms[k])
+            for k in range(min(max_dim + 1, len(m1.dgms), len(m2.dgms)))
+        }
 
     def curvature_difference(self, m1, m2):
-        """Signed and absolute curvature-distribution comparisons.
+        """Curvature comparison between two measured manifolds.
 
-        ``negative_fraction_difference`` is signed: positive means m1 has the
-        larger negative-curvature fraction. ``frac_negative_difference`` is the
-        backward-compatible *absolute* alias kept for topology_metric; it
-        carries no direction.
+        See :func:`curvature_distribution_difference` for the signed/absolute
+        contract.
         """
-        c1 = np.asarray(m1.curvature_values, dtype=float)
-        c2 = np.asarray(m2.curvature_values, dtype=float)
-        if (
-            c1.size == 0
-            or c2.size == 0
-            or not np.isfinite(c1).all()
-            or not np.isfinite(c2).all()
-        ):
-            return dict(_CURVATURE_UNAVAILABLE)
-        signed = float((c1 < 0).mean() - (c2 < 0).mean())
-        return {
-            "distribution_distance": float(wasserstein_distance(c1, c2)),
-            "mean_difference": float(c1.mean() - c2.mean()),
-            "negative_fraction_difference": signed,
-            "absolute_negative_fraction_difference": abs(signed),
-            "frac_negative_difference": abs(signed),
-        }
+        return curvature_distribution_difference(m1.curvature_values, m2.curvature_values)
 
     def compare(self, m1, m2, max_dim=1):
         return {
@@ -915,8 +929,10 @@ class ManifoldComparator:
                 f"only {len(nulls)} of {n_nulls} null draws could be measured; "
                 f"at least {MINIMUM_VALID_NULLS} are required"
             )
+            # Comparing the observed manifold with itself yields exactly the
+            # metric names a real comparison would have produced.
             names = ["id_difference"] if "intrinsic_dimension" in selected else []
-            names += _distance_metric_names(selected, max_dim)
+            names += list(self._flatten_distances(observed, observed, max_dim, selected))
             results = {name: unavailable_result(reason) for name in names}
         else:
             if "intrinsic_dimension" in selected:
@@ -972,18 +988,3 @@ class ManifoldComparator:
             )
             for offset, kind in ((0, "covariance_gaussian"), (n_nulls, "isotropic_gaussian"))
         }
-
-
-def _distance_metric_names(metrics: Sequence[str], max_dim: int) -> list[str]:
-    """Metric names a comparison would produce, for the all-draws-failed path."""
-    names: list[str] = []
-    if "topology" in metrics:
-        for k in range(max_dim + 1):
-            names += [f"H{k}_wasserstein", f"H{k}_bottleneck"]
-    if "curvature" in metrics:
-        names += [
-            "curvature_wasserstein",
-            "curvature_mean_difference",
-            "curvature_negative_fraction_difference",
-        ]
-    return names
