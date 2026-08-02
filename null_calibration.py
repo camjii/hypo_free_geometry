@@ -16,7 +16,7 @@ import time
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 # Match pipeline_draft OpenMP isolation before native imports.
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -30,19 +30,25 @@ import matplotlib
 
 matplotlib.use("Agg")
 
-import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
 import skdim
 import yaml
 from ripser import ripser
-from scipy.spatial.distance import pdist
-from sklearn.covariance import LedoitWolf
 from sklearn.decomposition import PCA
 from sklearn.neighbors import radius_neighbors_graph
 
-from null_cloud import Manifold, ManifoldComparator, _finite
+from null_cloud import (
+    Manifold,
+    ManifoldComparator,
+    _finite,
+    _graph_diagnostics,
+    empirical_pvalue,
+    fit_null_gaussian,
+    sample_null_cloud,
+    unavailable_result,
+)
 
 
 DEFAULT_CONFIG = PROJECT_ROOT / "null_calibration.yaml"
@@ -443,104 +449,86 @@ class CalibrationPipeline:
 
 
 class CalibrationManifold(Manifold):
-    """Manifold measurement with optional curvature and PCA-mode plumbing."""
+    """Manifold measurement with optional curvature and graph diagnostics.
+
+    Curvature can be switched off per instance because Ollivier-Ricci dominates
+    benchmark runtime. A switched-off or failed curvature measurement sets
+    ``curvature_skipped`` and leaves topology and intrinsic dimension intact.
+    """
 
     def __init__(self, *args: Any, enable_curvature: bool = True, **kwargs: Any) -> None:
         self.enable_curvature = bool(enable_curvature)
         self.curvature_skipped = False
-        self.curvature_error: str | None = None
         self.graph_n_nodes = 0
         self.graph_n_edges = 0
         self.graph_n_components = 0
         self.graph_mean_degree = float("nan")
         super().__init__(*args, **kwargs)
 
-    def _measure(self) -> None:
-        self.intrinsic_dim = float(self.pipeline.get_intrinsic_dim(self.cloud))
-        projected = self.pipeline.reduce_pca(self.cloud, self.var_threshold)
-        distances = pdist(projected)
-        if distances.size == 0 or not np.isfinite(distances).all() or float(distances.max()) <= 0.0:
-            raise ValueError("projected cloud must contain distinct finite points")
-        self.diameter = float(distances.max())
-        projected = projected / self.diameter
-        self.m = int(projected.shape[1])
-        self.dgms = self.pipeline.create_persistence_diagram(projected)["dgms"]
-
-        sorted_distances = np.sort(distances / self.diameter)
-        self.eps = float(
-            sorted_distances[min(int(self.eps_density * len(sorted_distances)), len(sorted_distances) - 1)]
-        )
-        graph = self.pipeline.create_epsilon_graph(projected, self.eps)
-        self.graph_n_nodes = int(graph.number_of_nodes())
-        self.graph_n_edges = int(graph.number_of_edges())
-        self.graph_n_components = int(nx.number_connected_components(graph))
-        degrees = [degree for _, degree in graph.degree()]
-        self.graph_mean_degree = float(np.mean(degrees)) if degrees else float("nan")
-
+    def _measure_curvature(self, projected: np.ndarray) -> None:
+        """Always build the graph for diagnostics; run Ricci only when enabled."""
+        try:
+            graph = self.pipeline.create_epsilon_graph(projected, self.eps)
+        except Exception as exc:
+            self.curvature_error = f"{type(exc).__name__}: {exc}"
+            return
+        self.graph_diagnostics = _graph_diagnostics(graph)
         if not self.enable_curvature:
-            self.curvature_values = np.empty(0, dtype=float)
-            self.curvature_skipped = True
             self.curvature_error = "skipped_by_config"
             return
-
         try:
-            curv = self.pipeline.compute_ollivier_ricci(graph)
-            values = np.asarray(curv.get("raw_values", []), dtype=float)
-            if values.size == 0 or not np.isfinite(values).all():
-                self.curvature_values = np.empty(0, dtype=float)
-                self.curvature_skipped = True
-                self.curvature_error = (
-                    "empty_or_skipped" if curv.get("skipped") else "non_finite"
-                )
-            else:
-                self.curvature_values = values
-                self.curvature_skipped = False
-                self.curvature_error = None
-        except Exception as exc:  # pragma: no cover - backend-dependent
-            self.curvature_values = np.empty(0, dtype=float)
-            self.curvature_skipped = True
+            values = np.asarray(
+                self.pipeline.compute_ollivier_ricci(graph).get("raw_values", []),
+                dtype=float,
+            )
+        except Exception as exc:
             self.curvature_error = f"{type(exc).__name__}: {exc}"
+            return
+        if values.size == 0 or not np.isfinite(values).all():
+            self.curvature_error = "empty_or_nonfinite_curvature"
+        else:
+            self.curvature_values = values
 
-    def _draw_null_cloud(self, kind: str, seed: int) -> np.ndarray:
-        """Reuse null_cloud generative models without forcing parent curvature."""
-        n = len(self.cloud)
-        rng = np.random.default_rng(int(seed))
-        if kind == "noise":
-            kind = "covariance_gaussian"
-        if kind == "covariance_gaussian":
-            estimator = LedoitWolf(store_precision=False).fit(self.cloud)
-            return rng.multivariate_normal(
-                mean=estimator.location_,
-                cov=estimator.covariance_,
-                size=n,
-            )
-        if kind == "isotropic_gaussian":
-            mean = self.cloud.mean(axis=0)
-            average_variance = float(np.var(self.cloud, axis=0, ddof=1).mean())
-            if average_variance <= 0:
-                raise ValueError("isotropic Gaussian null requires positive variance")
-            return mean + rng.normal(
-                loc=0.0,
-                scale=np.sqrt(average_variance),
-                size=self.cloud.shape,
-            )
-        raise ValueError(
-            f"unknown null kind: {kind}. Use 'covariance_gaussian' or 'isotropic_gaussian'."
-        )
+    def _measure(self) -> None:
+        super()._measure()
+        diagnostics = self.graph_diagnostics or {}
+        self.graph_n_nodes = int(diagnostics.get("node_count", 0))
+        self.graph_n_edges = int(diagnostics.get("edge_count", 0))
+        self.graph_n_components = int(diagnostics.get("connected_components", 0))
+        self.graph_mean_degree = float(diagnostics.get("mean_degree", float("nan")))
+        self.curvature_skipped = self.curvature_values.size == 0
 
-    def null(self, kind: str = "covariance_gaussian", seed: int | None = None):
-        null_seed = (
-            int(self.rng.integers(1 << 30)) if seed is None else int(seed)
-        )
-        cloud = self._draw_null_cloud(kind, null_seed)
+    def null(
+        self,
+        kind: str = "covariance_gaussian",
+        seed: int | None = None,
+        covariance_estimator: str | None = None,
+        fit: Mapping[str, Any] | None = None,
+        enable_curvature: bool | None = None,
+    ) -> "CalibrationManifold":
+        """Draw and measure one null cloud.
+
+        ``fit`` reuses a :func:`fit_null_gaussian` result so an ensemble fits the
+        Gaussian once. ``enable_curvature`` selects curvature for this draw only
+        and never mutates the observed manifold.
+        """
+        estimator = covariance_estimator or self.covariance_estimator
+        resolved_kind = "covariance_gaussian" if kind == "noise" else kind
+        if fit is None:
+            fit = fit_null_gaussian(
+                self.cloud, kind=resolved_kind, covariance_estimator=estimator
+            )
+        null_seed = int(self.rng.integers(1 << 30)) if seed is None else int(seed)
         return CalibrationManifold(
-            pipeline=self.pipeline,
-            opt_activations=cloud,
-            label=f"null:{kind}",
+            self.pipeline,
+            sample_null_cloud(fit, sample_count=len(self.cloud), seed=null_seed),
+            label=f"null:{resolved_kind}",
             seed=null_seed,
             eps_density=self.eps_density,
             var_threshold=self.var_threshold,
-            enable_curvature=self.enable_curvature,
+            enable_curvature=(
+                self.enable_curvature if enable_curvature is None else bool(enable_curvature)
+            ),
         )
 
 
@@ -571,41 +559,25 @@ def persistence_summaries(dgms: list[np.ndarray]) -> dict[str, float]:
     return out
 
 
+_COMPARATOR = ManifoldComparator()
+
+
 def _safe_diagram_distance(d1: np.ndarray, d2: np.ndarray) -> dict[str, float]:
-    import persim
-
+    """Bottleneck / Wasserstein between two diagrams; NaN when persim refuses."""
     a, b = _finite(d1), _finite(d2)
-    try:
-        wasserstein = float(persim.wasserstein(a, b))
-    except Exception:
-        wasserstein = float("nan")
-    try:
-        bottleneck = float(persim.bottleneck(a, b))
-    except Exception:
-        bottleneck = float("nan")
-    return {"wasserstein": wasserstein, "bottleneck": bottleneck}
+    return _COMPARATOR.diagram_distance(
+        type("D", (), {"dgms": [a]})(), type("D", (), {"dgms": [b]})(), max_dim=0
+    )["H0"]
 
 
-def _safe_curvature_difference(m1: CalibrationManifold, m2: CalibrationManifold) -> dict[str, float]:
-    if (
-        m1.curvature_skipped
-        or m2.curvature_skipped
-        or np.asarray(m1.curvature_values).size == 0
-        or np.asarray(m2.curvature_values).size == 0
-    ):
-        return {
-            "distribution_distance": float("nan"),
-            "mean_difference": float("nan"),
-            "negative_fraction_difference": float("nan"),
-        }
-    try:
-        return ManifoldComparator().curvature_difference(m1, m2)
-    except Exception:
-        return {
-            "distribution_distance": float("nan"),
-            "mean_difference": float("nan"),
-            "negative_fraction_difference": float("nan"),
-        }
+def _safe_curvature_difference(m1, m2) -> dict[str, float]:
+    """Curvature comparison, or all-NaN when either side has no usable edges."""
+    if getattr(m1, "curvature_skipped", False) or getattr(m2, "curvature_skipped", False):
+        return _COMPARATOR.curvature_difference(
+            type("C", (), {"curvature_values": np.empty(0)})(),
+            type("C", (), {"curvature_values": np.empty(0)})(),
+        )
+    return _COMPARATOR.curvature_difference(m1, m2)
 
 
 def flatten_calibration_distances(
@@ -627,37 +599,40 @@ def flatten_calibration_distances(
         distances[f"H{dim}_bottleneck"] = values["bottleneck"]
 
     if include_curvature:
-        curv = _safe_curvature_difference(m1, m2)
-        # Signed quantities only — do not multiply by |negative-fraction|.
-        distances["curvature_wasserstein"] = float(curv["distribution_distance"])
-        distances["curvature_mean_difference"] = float(curv["mean_difference"])
+        curvature = _safe_curvature_difference(m1, m2)
+        # Signed quantities only -- do not multiply by |negative-fraction|.
+        distances["curvature_wasserstein"] = float(curvature["distribution_distance"])
+        distances["curvature_mean_difference"] = float(curvature["mean_difference"])
         distances["curvature_negative_fraction_difference"] = float(
-            curv["negative_fraction_difference"]
+            curvature["negative_fraction_difference"]
         )
     return distances
 
 
-def _robust_scores_from_matrix(matrix: np.ndarray, n_nulls: int) -> dict[str, float]:
-    observed_score = float(np.nanmedian(matrix[0, 1:]))
+def _median_to_others(row: np.ndarray) -> float:
+    """Median of the finite entries of one row; NaN when none are finite."""
+    values = np.asarray(row, dtype=float)
+    values = values[np.isfinite(values)]
+    return float(np.median(values)) if values.size else float("nan")
+
+
+def scores_from_matrix(matrix: np.ndarray) -> dict[str, Any]:
+    """Rank the observed object's median distance against the null objects'.
+
+    ``matrix`` is the symmetric (1 + n_nulls) square of pairwise distances with
+    the observed object at index 0 and NaN on the diagonal. Inference is
+    delegated to :func:`null_cloud.empirical_pvalue`, so a non-finite observed
+    score or too few finite null scores yields ``inference_available=False``
+    rather than a spuriously small p-value.
+    """
     null_matrix = matrix[1:, 1:]
-    null_scores = np.asarray(
+    return empirical_pvalue(
+        _median_to_others(matrix[0, 1:]),
         [
-            float(np.nanmedian(np.delete(null_matrix[index], index)))
-            for index in range(n_nulls)
+            _median_to_others(np.delete(null_matrix[index], index))
+            for index in range(null_matrix.shape[0])
         ],
-        dtype=float,
     )
-    null_median = float(np.nanmedian(null_scores))
-    null_mad = float(np.nanmedian(np.abs(null_scores - null_median)))
-    return {
-        "observed_score": observed_score,
-        "null_median": null_median,
-        "null_mad": null_mad,
-        "robust_z": float((observed_score - null_median) / (1.4826 * null_mad + 1e-12)),
-        "monte_carlo_pvalue": float(
-            (1.0 + np.nansum(null_scores >= observed_score)) / (n_nulls + 1.0)
-        ),
-    }
 
 
 def robust_null_comparison(
@@ -669,85 +644,148 @@ def robust_null_comparison(
     include_curvature: bool,
     curvature_nulls: int = 5,
 ) -> dict[str, Any]:
-    """Repeated-null robust-z / Monte Carlo p-values (null_cloud-style).
+    """Repeated-null empirical inference for one manifold and one null model.
 
-    Topology/ID nulls are measured without Ricci. Curvature uses a smaller
-    repeated-null subset because Ollivier–Ricci dominates runtime.
+    The Gaussian is fitted once and reused for every draw. Topology and ID nulls
+    are measured without Ricci; curvature uses a smaller ensemble because
+    Ollivier-Ricci dominates runtime. Draws that fail to measure are recorded and
+    excluded rather than aborting. ``manifold`` is never mutated.
     """
     if n_nulls < 3:
         raise ValueError("n_nulls must be at least 3")
 
-    # Force topology nulls to skip curvature even if the observed cloud has it.
-    previous = manifold.enable_curvature
-    manifold.enable_curvature = False
-    try:
-        nulls = [
-            manifold.null(kind=kind, seed=base_seed + index) for index in range(n_nulls)
-        ]
-    finally:
-        manifold.enable_curvature = previous
+    fit = fit_null_gaussian(
+        manifold.cloud,
+        kind="covariance_gaussian" if kind == "noise" else kind,
+        covariance_estimator=manifold.covariance_estimator,
+    )
 
-    objects: list[CalibrationManifold] = [manifold, *nulls]
-    metric_names = [
-        name
-        for name in flatten_calibration_distances(
-            objects[0], objects[1], include_curvature=False
+    nulls, failures = _draw_nulls(manifold, kind, n_nulls, base_seed, fit, False)
+
+    results: dict[str, Any] = {}
+    metric_names = list(
+        flatten_calibration_distances(manifold, manifold, include_curvature=False)
+    )
+    if len(nulls) < 3:
+        reason = (
+            f"only {len(nulls)} of {n_nulls} null draws could be measured; "
+            "at least 3 are required"
         )
-    ]
-    n_objects = len(objects)
-    matrices = {name: np.zeros((n_objects, n_objects), dtype=float) for name in metric_names}
-
-    for i in range(n_objects):
-        for j in range(i + 1, n_objects):
-            distances = flatten_calibration_distances(
-                objects[i], objects[j], include_curvature=False
-            )
-            for name, value in distances.items():
-                matrices[name][i, j] = value
-                matrices[name][j, i] = value
-
-    results = {
-        name: _robust_scores_from_matrix(matrix, n_nulls)
-        for name, matrix in matrices.items()
-    }
+        results = {name: unavailable_result(reason) for name in metric_names}
+    else:
+        objects = [manifold, *nulls]
+        matrices = _pairwise_matrices(objects, metric_names, include_curvature=False)
+        results = {name: scores_from_matrix(matrix) for name, matrix in matrices.items()}
 
     if include_curvature and not manifold.curvature_skipped:
-        n_curv = max(3, min(int(curvature_nulls), n_nulls))
-        manifold.enable_curvature = True
-        try:
-            curv_nulls = [
-                manifold.null(kind=kind, seed=base_seed + 10_000 + index)
-                for index in range(n_curv)
-            ]
-        finally:
-            manifold.enable_curvature = previous
-
-        curv_objects = [manifold, *curv_nulls]
-        curv_matrix = np.zeros((n_curv + 1, n_curv + 1), dtype=float)
-        signed_mean = []
-        signed_neg = []
-        for i in range(n_curv + 1):
-            for j in range(i + 1, n_curv + 1):
-                curv = _safe_curvature_difference(curv_objects[i], curv_objects[j])
-                value = float(curv["distribution_distance"])
-                curv_matrix[i, j] = value
-                curv_matrix[j, i] = value
-                if i == 0:
-                    signed_mean.append(float(curv["mean_difference"]))
-                    signed_neg.append(float(curv["negative_fraction_difference"]))
-        results["curvature_wasserstein"] = _robust_scores_from_matrix(curv_matrix, n_curv)
-        results["signed_mean_curvature_difference"] = {
-            "observed_score": float(np.nanmedian(signed_mean))
-        }
-        results["signed_negative_fraction_difference"] = {
-            "observed_score": float(np.nanmedian(signed_neg))
-        }
+        results.update(
+            _curvature_comparison(
+                manifold,
+                kind=kind,
+                n_nulls=max(3, min(int(curvature_nulls), n_nulls)),
+                base_seed=base_seed + 10_000,
+                fit=fit,
+            )
+        )
 
     return {
         "null_kind": kind,
         "n_nulls": n_nulls,
+        "n_nulls_measured": len(nulls),
+        "null_failures": failures,
         "base_seed": base_seed,
+        "covariance_match": fit["diagnostics"]["covariance_match"],
         "metrics": results,
+    }
+
+
+def _draw_nulls(
+    manifold: CalibrationManifold,
+    kind: str,
+    count: int,
+    base_seed: int,
+    fit: Mapping[str, Any],
+    enable_curvature: bool,
+) -> tuple[list[CalibrationManifold], list[dict[str, Any]]]:
+    """Draw ``count`` nulls at deterministic seeds, recording failures."""
+    nulls: list[CalibrationManifold] = []
+    failures: list[dict[str, Any]] = []
+    for index in range(count):
+        seed = base_seed + index
+        try:
+            nulls.append(
+                manifold.null(
+                    kind=kind, seed=seed, fit=fit, enable_curvature=enable_curvature
+                )
+            )
+        except Exception as exc:
+            failures.append(
+                {"index": index, "seed": seed, "error": f"{type(exc).__name__}: {exc}"}
+            )
+    return nulls, failures
+
+
+def _pairwise_matrices(
+    objects: Sequence[CalibrationManifold],
+    names: Sequence[str],
+    *,
+    include_curvature: bool,
+) -> dict[str, np.ndarray]:
+    """Symmetric pairwise distance matrices, one per metric, NaN on the diagonal."""
+    n = len(objects)
+    matrices = {name: np.full((n, n), np.nan, dtype=float) for name in names}
+    for i in range(n):
+        for j in range(i + 1, n):
+            distances = flatten_calibration_distances(
+                objects[i], objects[j], include_curvature=include_curvature
+            )
+            for name, value in distances.items():
+                if name in matrices:
+                    matrices[name][i, j] = value
+                    matrices[name][j, i] = value
+    return matrices
+
+
+def _curvature_comparison(
+    manifold: CalibrationManifold,
+    *,
+    kind: str,
+    n_nulls: int,
+    base_seed: int,
+    fit: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Curvature inference on its own smaller ensemble.
+
+    The signed mean and negative-fraction differences are descriptive summaries
+    of the observed cloud against its nulls, not tests, so they carry no p-value.
+    """
+    nulls, _ = _draw_nulls(manifold, kind, n_nulls, base_seed, fit, True)
+    if len(nulls) < 3:
+        return {
+            "curvature_wasserstein": unavailable_result(
+                f"only {len(nulls)} curvature null draws could be measured"
+            )
+        }
+
+    objects = [manifold, *nulls]
+    matrix = _pairwise_matrices(
+        objects, ["curvature_wasserstein"], include_curvature=True
+    )["curvature_wasserstein"]
+    signed = [
+        _safe_curvature_difference(manifold, null) for null in nulls
+    ]
+    return {
+        "curvature_wasserstein": scores_from_matrix(matrix),
+        "signed_mean_curvature_difference": {
+            "observed_score": _median_to_others(
+                np.array([value["mean_difference"] for value in signed])
+            )
+        },
+        "signed_negative_fraction_difference": {
+            "observed_score": _median_to_others(
+                np.array([value["negative_fraction_difference"] for value in signed])
+            )
+        },
     }
 
 
@@ -896,14 +934,14 @@ def run_single(
             row[f"{prefix}_h0_bottleneck"] = _metric_or_nan(metrics, "H0_bottleneck", "observed_score")
             row[f"{prefix}_h0_wasserstein"] = _metric_or_nan(metrics, "H0_wasserstein", "observed_score")
             row[f"{prefix}_h0_robust_z"] = _metric_or_nan(metrics, "H0_bottleneck", "robust_z")
-            row[f"{prefix}_h0_pvalue"] = _metric_or_nan(metrics, "H0_bottleneck", "monte_carlo_pvalue")
+            row[f"{prefix}_h0_pvalue"] = _metric_or_nan(metrics, "H0_bottleneck", "pvalue")
             row[f"{prefix}_h1_bottleneck"] = _metric_or_nan(metrics, "H1_bottleneck", "observed_score")
             row[f"{prefix}_h1_wasserstein"] = _metric_or_nan(metrics, "H1_wasserstein", "observed_score")
             row[f"{prefix}_h1_robust_z"] = _metric_or_nan(metrics, "H1_bottleneck", "robust_z")
-            row[f"{prefix}_h1_pvalue"] = _metric_or_nan(metrics, "H1_bottleneck", "monte_carlo_pvalue")
+            row[f"{prefix}_h1_pvalue"] = _metric_or_nan(metrics, "H1_bottleneck", "pvalue")
             row[f"{prefix}_id_difference"] = _metric_or_nan(metrics, "id_difference", "observed_score")
             row[f"{prefix}_id_robust_z"] = _metric_or_nan(metrics, "id_difference", "robust_z")
-            row[f"{prefix}_id_pvalue"] = _metric_or_nan(metrics, "id_difference", "monte_carlo_pvalue")
+            row[f"{prefix}_id_pvalue"] = _metric_or_nan(metrics, "id_difference", "pvalue")
             row[f"{prefix}_curvature_wasserstein"] = _metric_or_nan(
                 metrics, "curvature_wasserstein", "observed_score"
             )
@@ -911,7 +949,7 @@ def run_single(
                 metrics, "curvature_wasserstein", "robust_z"
             )
             row[f"{prefix}_curvature_wasserstein_pvalue"] = _metric_or_nan(
-                metrics, "curvature_wasserstein", "monte_carlo_pvalue"
+                metrics, "curvature_wasserstein", "pvalue"
             )
             row[f"{prefix}_curvature_mean_difference"] = _metric_or_nan(
                 metrics, "signed_mean_curvature_difference", "observed_score"
@@ -991,14 +1029,31 @@ def run_benchmark(config: Mapping[str, Any]) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
+REJECTION_COLUMNS = (
+    ("reject_iso_h0", "iso_h0_pvalue"),
+    ("reject_iso_h1", "iso_h1_pvalue"),
+    ("reject_iso_id", "iso_id_pvalue"),
+    ("reject_cov_h0", "cov_h0_pvalue"),
+    ("reject_cov_h1", "cov_h1_pvalue"),
+    ("reject_cov_id", "cov_id_pvalue"),
+)
+
+
 def annotate_rejections(runs: pd.DataFrame, alpha: float = 0.05) -> pd.DataFrame:
+    """Add one boolean rejection column per p-value column.
+
+    A missing p-value means inference was unavailable, which is neither a
+    rejection nor a confirmed non-rejection. It is marked ``False`` here so it
+    can never be counted as a detection, and the matching ``*_available`` column
+    records that the run contributed no evidence either way -- rate helpers must
+    use that mask instead of treating unavailable as a passed test.
+    """
     frame = runs.copy()
-    frame["reject_iso_h0"] = frame["iso_h0_pvalue"] <= alpha
-    frame["reject_iso_h1"] = frame["iso_h1_pvalue"] <= alpha
-    frame["reject_iso_id"] = frame["iso_id_pvalue"] <= alpha
-    frame["reject_cov_h0"] = frame["cov_h0_pvalue"] <= alpha
-    frame["reject_cov_h1"] = frame["cov_h1_pvalue"] <= alpha
-    frame["reject_cov_id"] = frame["cov_id_pvalue"] <= alpha
+    for rejection_column, pvalue_column in REJECTION_COLUMNS:
+        values = pd.to_numeric(frame[pvalue_column], errors="coerce")
+        available = np.isfinite(values.to_numpy(dtype=float))
+        frame[f"{pvalue_column}_available"] = available
+        frame[rejection_column] = available & (values <= alpha).fillna(False).to_numpy()
     return frame
 
 
