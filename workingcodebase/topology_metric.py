@@ -29,7 +29,7 @@ Metric = namedtuple("Metric", ["dimension", "topology", "curvature"])
 
 class TopologyMetric:
 
-    def __init__(self, manifold, kind="shuffled", n_null=1, max_dim=1):
+    def __init__(self, manifold, kind="noise", n_null=1, max_dim=1):
         # n_null > 1: average over independent null draws -- each is one draw
         # from the null distribution, so averaging reduces single-draw variance.
         # manifold.null() reseeds from the manifold's rng, so draws differ.

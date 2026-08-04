@@ -113,13 +113,13 @@ class Pipeline():
         #Visualization only: 3-D projection
         X = final_activations.detach().cpu().numpy() if isinstance(final_activations, torch.Tensor) else final_activations
         projected = PCA(n_components=3).fit_transform(X)
-
-        plt.figure()
-        plt.scatter(projected[:, 0], projected[:, 1], projected[:, 2])
-        plt.xlabel('PC1')
-        plt.ylabel('PC2')
-        plt.zlabel('PC3')
-        plt.title('3D PCA of layer activations')
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        ax.scatter(projected[:, 0], projected[:, 1], projected[:, 2])
+        ax.set_xlabel('PC1')
+        ax.set_ylabel('PC2')
+        ax.set_zlabel('PC3')
+        ax.set_title('3D PCA of layer activations')
         plt.savefig('pca_projection.png', dpi=150, bbox_inches='tight')
         print('Saved PCA plot to pca_projection.png')
         plt.show()
