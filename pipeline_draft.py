@@ -51,17 +51,16 @@ class Pipeline():
         independent null draws rather than one (see topology_metric.py) so the
         winner isn't just whichever layer's single null draw landed oddly.
         '''
-        activations_dict = {f'layer_{l}':[] for l in range(self.model.cfg.n_layers)}
+        activations_dict = {f'layer_{l}':[] for l in range(self.model.cfg.n_layers)} 
 
-        for prompt in self.prompts:
+        for prompt in self.prompts: 
             with torch.no_grad():
                 _, cache = self.model.run_with_cache(prompt)
                 for l in range(self.model.cfg.n_layers):
-                    activations_dict[f'layer_{l}'].append(cache['resid_post', l][0, -1, :])
+                    activations_dict[f'layer_{l}'].append(cache['resid_post', l][0, -1, :]) 
 
         for layer, _ in activations_dict.items():
-            activations_dict[layer] = torch.stack(activations_dict[layer]).detach().cpu().numpy()
-
+            activations_dict[layer] = torch.stack(activations_dict[layer]).detach().cpu().numpy() 
         best_layer, best_score, scores = None, -np.inf, {}
         for layer, act in activations_dict.items():
             manifold = Manifold(self, act, cloud=act, label=layer)
