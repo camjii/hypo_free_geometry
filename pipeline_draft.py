@@ -44,7 +44,7 @@ class Pipeline():
 
     
     
-    def select_layer_by_topology(self, kind='noise', max_dim=1, n_nulls=30):
+    def select_layer_by_topology(self, kind=None, max_dim=1, n_nulls=30):
         '''
         Layer selection by shape, not magnitude: score each layer by how far its
         activation cloud sits from its own null, z-scored against n_nulls

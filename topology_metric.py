@@ -30,7 +30,7 @@ Metric = namedtuple("Metric", ["dimension", "topology", "curvature"])
 
 class TopologyMetric:
 
-    def __init__(self, manifold, kind="noise", max_dim=1, n_nulls=5):
+    def __init__(self, manifold, kind=None, max_dim=1, n_nulls=5):
         comparator = ManifoldComparator()
         nulls = [manifold.null(kind) for _ in range(n_nulls)]
 
