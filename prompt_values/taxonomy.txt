@@ -1,0 +1,16 @@
+organism
+animal
+vertebrate
+mammal
+carnivore
+feline
+lion
+tiger
+canine
+wolf
+dog
+primate
+human
+plant
+tree
+flower

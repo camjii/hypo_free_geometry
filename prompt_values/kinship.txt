@@ -1,0 +1,12 @@
+grandmother
+grandfather
+mother
+father
+brother
+sister
+son
+daughter
+uncle
+aunt
+cousin
+nephew

@@ -1,0 +1,102 @@
+{
+  "years": {
+    "template": "year",
+    "expected_topology": "1D line (ordered)",
+    "n_values": 11
+  },
+  "quantities": {
+    "template": "quantity",
+    "expected_topology": "1D log line",
+    "n_values": 7
+  },
+  "colors": {
+    "template": "color",
+    "expected_topology": "hue circle (S1)",
+    "n_values": 12
+  },
+  "emotions": {
+    "template": "emotion",
+    "expected_topology": "circumplex (S1)",
+    "n_values": 12
+  },
+  "musical_notes": {
+    "template": "musical_note",
+    "expected_topology": "chromatic circle (S1)",
+    "n_values": 12
+  },
+  "circle_of_fifths": {
+    "template": "musical_key",
+    "expected_topology": "circle of fifths (S1)",
+    "n_values": 12
+  },
+  "clock_hours": {
+    "template": "hour",
+    "expected_topology": "clock circle (S1)",
+    "n_values": 12
+  },
+  "compass": {
+    "template": "compass_direction",
+    "expected_topology": "bearing circle (S1)",
+    "n_values": 8
+  },
+  "seasons": {
+    "template": "season",
+    "expected_topology": "annual circle (S1)",
+    "n_values": 4
+  },
+  "planets": {
+    "template": "planet",
+    "expected_topology": "1D ordered / log line",
+    "n_values": 8
+  },
+  "elements": {
+    "template": "chemical_element",
+    "expected_topology": "periodic spiral",
+    "n_values": 20
+  },
+  "amino_acids": {
+    "template": "amino_acid",
+    "expected_topology": "2D property plane",
+    "n_values": 20
+  },
+  "cities_us": {
+    "template": "city",
+    "expected_topology": "2D map plane",
+    "n_values": 12
+  },
+  "cities_global": {
+    "template": "city",
+    "expected_topology": "2D sphere (S2)",
+    "n_values": 12
+  },
+  "vowels": {
+    "template": "vowel_sound",
+    "expected_topology": "vowel quadrilateral (2D)",
+    "n_values": 12
+  },
+  "taxonomy": {
+    "template": "taxonomy_concept",
+    "expected_topology": "tree (H0, no loops)",
+    "n_values": 16
+  },
+  "kinship": {
+    "template": "kinship",
+    "expected_topology": "tree / relational grid",
+    "n_values": 12
+  },
+  "directions_3d": {
+    "template": "movement_direction",
+    "expected_topology": "unit sphere (S2)",
+    "n_values": 6
+  },
+  "chess_pieces": {
+    "template": "chess_piece",
+    "expected_topology": "1D value poset",
+    "n_values": 6
+  },
+  "political": {
+    "template": "political_person",
+    "expected_topology": "1D-2D ideology plane",
+    "n_values": 10
+  }
+}
