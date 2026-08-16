@@ -7,6 +7,14 @@ name = "hypo-free-geometry-recovery"
 version = "0.0.1"
 requires-python = ">=3.11"
 
+[project.optional-dependencies]
+activation = [
+    "huggingface-hub>=0.23",
+    "numpy>=1.26",
+    "torch>=2.2",
+    "transformers>=4.38",
+]
+
 [tool.setuptools]
 py-modules = [
     "pipeline_draft",
@@ -16,4 +24,7 @@ py-modules = [
     "ground_truth_comp",
     "null_cloud",
     "topology_metric",
+    "calendar_date_validation",
+    "activation_extraction",
+    "prompt_templates",
 ]
