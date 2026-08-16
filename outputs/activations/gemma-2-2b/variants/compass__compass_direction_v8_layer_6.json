@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "compass",
+  "template_name": "compass_direction_v8",
+  "template": "The referenced compass heading is {value}.",
+  "template_family": "compass_direction",
+  "n_prompts": 8,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/compass__compass_direction_v8_layer_6.npz",
+    "sha256": "e962f17f99f34a7d807ad3111523424e74da5642a264016aa5aa46144671f82e",
+    "shape": [
+      8,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

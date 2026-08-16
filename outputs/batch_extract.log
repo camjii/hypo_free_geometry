@@ -1,0 +1,25 @@
+resolving model revision...
+loading model once (cached)...
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights: 100%|██████████| 254/254 [00:00<00:00, 3200.57it/s]
+  years              (11, 3072)    27.9s -> years_layer_6.npz
+  quantities         (7, 3072)     14.3s -> quantities_layer_6.npz
+  colors             (12, 3072)    26.4s -> colors_layer_6.npz
+  emotions           (12, 3072)    26.3s -> emotions_layer_6.npz
+  musical_notes      (12, 3072)    26.3s -> musical_notes_layer_6.npz
+  circle_of_fifths   (12, 3072)    28.0s -> circle_of_fifths_layer_6.npz
+  clock_hours        (12, 3072)    27.4s -> clock_hours_layer_6.npz
+  compass            (8, 3072)     13.2s -> compass_layer_6.npz
+  seasons            (4, 3072)     12.8s -> seasons_layer_6.npz
+  planets            (8, 3072)     14.0s -> planets_layer_6.npz
+  elements           (20, 3072)    39.5s -> elements_layer_6.npz
+  amino_acids        (20, 3072)    42.2s -> amino_acids_layer_6.npz
+  cities_us          (12, 3072)    26.4s -> cities_us_layer_6.npz
+  cities_global      (12, 3072)    26.3s -> cities_global_layer_6.npz
+  vowels             (12, 3072)    26.7s -> vowels_layer_6.npz
+  taxonomy           (16, 3072)    27.3s -> taxonomy_layer_6.npz
+  kinship            (12, 3072)    25.8s -> kinship_layer_6.npz
+  directions_3d      (6, 3072)     13.0s -> directions_3d_layer_6.npz
+  chess_pieces       (6, 3072)     13.0s -> chess_pieces_layer_6.npz
+  political          (10, 3072)    25.4s -> political_layer_6.npz
+
+DONE 20 families extracted

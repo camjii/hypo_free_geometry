@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "kinship",
+  "template_name": "kinship_v10",
+  "template": "The family connection is {value}.",
+  "template_family": "kinship",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/kinship__kinship_v10_layer_6.npz",
+    "sha256": "ff621bbbc4ae5c38a1a2d9e39c53af88f9fcc1fe632a7a801da049feb8e4de60",
+    "shape": [
+      12,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

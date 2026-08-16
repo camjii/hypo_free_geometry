@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "emotions",
+  "template_name": "emotion_v7",
+  "template": "The emotional response is {value}.",
+  "template_family": "emotion",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/variants/emotions__emotion_v7_layer_6.npz",
+    "sha256": "b4f075cad5c5b3fe79bd12bfc95436750ec0f0f4b78b6efd294aad8bc8023d8a",
+    "shape": [
+      12,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

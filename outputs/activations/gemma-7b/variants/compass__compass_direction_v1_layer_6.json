@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "compass",
+  "template_name": "compass_direction_v1",
+  "template": "The compass direction is {value}.",
+  "template_family": "compass_direction",
+  "n_prompts": 8,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/variants/compass__compass_direction_v1_layer_6.npz",
+    "sha256": "0af0a9b0e836e9aaaec463435dd929c67bb45360608f90e070ea7dc5428839e4",
+    "shape": [
+      8,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-final-token-activation-extraction-v1",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "final non-padding prompt token",
+  "prompt_set": "seasons",
+  "template_name": "season",
+  "template": "The season of the year is {value}",
+  "expected_topology": "annual circle (S1)",
+  "n_prompts": 4,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/seasons_layer_6.npz",
+    "sha256": "aea2c7053c947ff4988227db3bc1ed935eb118eaeba506001926ee5c776465fa",
+    "shape": [
+      4,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

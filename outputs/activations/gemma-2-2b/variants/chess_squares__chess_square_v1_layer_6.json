@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "chess_squares",
+  "template_name": "chess_square_v1",
+  "template": "The chessboard square is {value}.",
+  "template_family": "chess_square",
+  "n_prompts": 64,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/chess_squares__chess_square_v1_layer_6.npz",
+    "sha256": "ef5f928ff41a18044e986e48ac51c02bfe7655b58b7615afb306b425bded1efd",
+    "shape": [
+      64,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

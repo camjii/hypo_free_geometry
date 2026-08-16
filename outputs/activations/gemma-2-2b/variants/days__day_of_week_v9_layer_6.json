@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "days",
+  "template_name": "day_of_week_v9",
+  "template": "The named day of the week is {value}.",
+  "template_family": "day_of_week",
+  "n_prompts": 7,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/days__day_of_week_v9_layer_6.npz",
+    "sha256": "350df95e3aa5033fc57f7e24308d7baef4d986a44d9ea69d0e969673b70cb219",
+    "shape": [
+      7,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

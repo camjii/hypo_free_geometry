@@ -1,0 +1,45 @@
+{
+  "experiment": "gemma-final-token-activation-extraction-v1",
+  "source_revision": "e7d9e19cb30aea801c466be09f77c0ccf36ce9f2",
+  "command": "/opt/anaconda3/bin/python activation_extraction.py --prompt-set chess_squares --layer 6",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "final non-padding prompt token",
+  "prompt_set": "chess_squares",
+  "template_name": "chess_square",
+  "template": "The chess board square is {value}",
+  "n_prompts": 64,
+  "batch_size": 4,
+  "seed": 260215,
+  "requested_dtype": "auto",
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "started_unix": 1786768620.9334688,
+  "elapsed_seconds": 185.03399300575256,
+  "environment": {
+    "python": "3.13.5",
+    "platform": "macOS-15.7.3-arm64-arm-64bit-Mach-O",
+    "torch": "2.12.1",
+    "transformers": "5.13.0",
+    "huggingface_hub": "1.22.0"
+  },
+  "limitations": [
+    "Floating-point results can vary across hardware and accelerator kernels.",
+    "This artifact contains one layer and one token position per prompt."
+  ],
+  "artifact": {
+    "path": "outputs/activations/gemma-7b/chess-squares_layer_6.npz",
+    "sha256": "520f0d8d1c63fbeab3a0959300bcdaa096c3f6b4c8f6e79fe627a44a87f7deb8",
+    "shape": [
+      64,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

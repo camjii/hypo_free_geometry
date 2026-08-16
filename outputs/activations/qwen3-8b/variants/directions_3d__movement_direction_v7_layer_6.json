@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "directions_3d",
+  "template_name": "movement_direction_v7",
+  "template": "The motion heads {value}.",
+  "template_family": "movement_direction",
+  "n_prompts": 6,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 36,
+  "hidden_size": 4096,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/qwen3-8b/variants/directions_3d__movement_direction_v7_layer_6.npz",
+    "sha256": "152c02c3563046372d446bdf2c3512d0ad84c298c7c7efb03c7b4ccecbf4d559",
+    "shape": [
+      6,
+      4096
+    ],
+    "dtype": "float32"
+  }
+}

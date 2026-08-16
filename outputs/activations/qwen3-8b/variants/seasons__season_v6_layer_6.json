@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "seasons",
+  "template_name": "season_v6",
+  "template": "The referenced season is {value}.",
+  "template_family": "season",
+  "n_prompts": 4,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 36,
+  "hidden_size": 4096,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/qwen3-8b/variants/seasons__season_v6_layer_6.npz",
+    "sha256": "5b72104755f7abf42b44819e2adc14e048728a1c1cf0ff42c99285008eb84598",
+    "shape": [
+      4,
+      4096
+    ],
+    "dtype": "float32"
+  }
+}

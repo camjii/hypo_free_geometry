@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "amino_acids",
+  "template_name": "amino_acid_v10",
+  "template": "The biological molecule being referenced is the amino acid {value}.",
+  "template_family": "amino_acid",
+  "n_prompts": 20,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 36,
+  "hidden_size": 4096,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/qwen3-8b/variants/amino_acids__amino_acid_v10_layer_6.npz",
+    "sha256": "803386f428ff9f06ce4da64150a3184b274f5434ed6ef0db081f7ff3608a9183",
+    "shape": [
+      20,
+      4096
+    ],
+    "dtype": "float32"
+  }
+}

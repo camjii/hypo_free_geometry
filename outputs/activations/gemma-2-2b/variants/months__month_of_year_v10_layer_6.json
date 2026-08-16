@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "months",
+  "template_name": "month_of_year_v10",
+  "template": "The date falls within {value}.",
+  "template_family": "month_of_year",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/months__month_of_year_v10_layer_6.npz",
+    "sha256": "52ba507d7da753af2da710728611edd9c33e25b7634f0b29ea93ded4e6a95a97",
+    "shape": [
+      12,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

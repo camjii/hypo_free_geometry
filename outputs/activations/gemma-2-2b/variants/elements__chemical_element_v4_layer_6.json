@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "elements",
+  "template_name": "chemical_element_v4",
+  "template": "The atomic element is {value}.",
+  "template_family": "chemical_element",
+  "n_prompts": 20,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/elements__chemical_element_v4_layer_6.npz",
+    "sha256": "959985124bea9aaf52b0d39d06f5da8f3f798229088aa18c102b25370f0e3bc3",
+    "shape": [
+      20,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

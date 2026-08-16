@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-final-token-activation-extraction-v1",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "final non-padding prompt token",
+  "prompt_set": "vowels",
+  "template_name": "vowel_sound",
+  "template": "The vowel sound is pronounced \"{value}\"",
+  "expected_topology": "vowel quadrilateral (2D)",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/vowels_layer_6.npz",
+    "sha256": "f218d5f5e4869748131cc6bd8b6a0eb9c41c107ce408a4b5188235706b57482b",
+    "shape": [
+      12,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

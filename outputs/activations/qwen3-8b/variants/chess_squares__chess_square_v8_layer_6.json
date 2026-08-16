@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "chess_squares",
+  "template_name": "chess_square_v8",
+  "template": "The piece occupies {value}.",
+  "template_family": "chess_square",
+  "n_prompts": 64,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 36,
+  "hidden_size": 4096,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/qwen3-8b/variants/chess_squares__chess_square_v8_layer_6.npz",
+    "sha256": "7683d3783f5d2c24e14817adb15d8b4a8dd9f081bed1ae3b1409ad7596be6895",
+    "shape": [
+      64,
+      4096
+    ],
+    "dtype": "float32"
+  }
+}

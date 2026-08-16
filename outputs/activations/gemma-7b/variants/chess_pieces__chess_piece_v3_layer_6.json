@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "chess_pieces",
+  "template_name": "chess_piece_v3",
+  "template": "The player moves the {value}.",
+  "template_family": "chess_piece",
+  "n_prompts": 6,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/variants/chess_pieces__chess_piece_v3_layer_6.npz",
+    "sha256": "4b909c6fae9c8e187f68075ec05bb038cc06c61901a5a7168e77a9196a45cb2b",
+    "shape": [
+      6,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

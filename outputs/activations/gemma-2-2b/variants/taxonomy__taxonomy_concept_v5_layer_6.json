@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "taxonomy",
+  "template_name": "taxonomy_concept_v5",
+  "template": "The biological taxonomy term is {value}.",
+  "template_family": "taxonomy_concept",
+  "n_prompts": 16,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/taxonomy__taxonomy_concept_v5_layer_6.npz",
+    "sha256": "c5b7e9a0b06e8ab0839fda2e967bce656a89b710401da3fa4aa9e02d1de6ec54",
+    "shape": [
+      16,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

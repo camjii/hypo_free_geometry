@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "calendar_dates",
+  "template_name": "calendar_date_v4",
+  "template": "The date being referenced is {value}.",
+  "template_family": "calendar_date",
+  "n_prompts": 24,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/variants/calendar_dates__calendar_date_v4_layer_6.npz",
+    "sha256": "e923ad45326600d5a29f125739399a8d02ac0a30aa18db1ed2e41516a9c7766e",
+    "shape": [
+      24,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

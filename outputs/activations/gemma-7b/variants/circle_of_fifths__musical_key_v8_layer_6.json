@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "circle_of_fifths",
+  "template_name": "musical_key_v8",
+  "template": "The track is set in {value} major.",
+  "template_family": "musical_key",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/variants/circle_of_fifths__musical_key_v8_layer_6.npz",
+    "sha256": "3f2d0109b844e05237b0e760ab68e15b2d536eec519b404c4837c2a3cd7a144d",
+    "shape": [
+      12,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

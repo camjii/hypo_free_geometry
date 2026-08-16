@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "taxonomy",
+  "template_name": "taxonomy_concept_v1",
+  "template": "The taxonomy concept is the {value}.",
+  "template_family": "taxonomy_concept",
+  "n_prompts": 16,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 36,
+  "hidden_size": 4096,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/qwen3-8b/variants/taxonomy__taxonomy_concept_v1_layer_6.npz",
+    "sha256": "c2e529a541550ea550b871926ef0fd7a30f08f27071aeba932f7148d5042ebea",
+    "shape": [
+      16,
+      4096
+    ],
+    "dtype": "float32"
+  }
+}
