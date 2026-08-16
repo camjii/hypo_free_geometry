@@ -1,0 +1,82 @@
+{
+  "experiment": {
+    "id": "karkada-month-circle-layer6-v1",
+    "question": "Does the low-rank null destroy the translation-symmetric month organization predicted by Karkada et al.?",
+    "hypothesis": "At pre-specified layer_6, observed circulant Gram R\u00b2 exceeds the exact-spectrum null distribution.",
+    "source_revision": "e7d9e19cb30aea801c466be09f77c0ccf36ce9f2",
+    "command": "month_circle_validation.py"
+  },
+  "environment": {
+    "python": "3.11.14",
+    "numpy": "2.2.6",
+    "os": "macOS-15.7.3-arm64-arm-64bit"
+  },
+  "inputs": {
+    "contextualized": {
+      "path": "ground_truth_verification/months_contextualized_reps_by_layer.npy",
+      "sha256": "f5b38557ffb8faceafa43873770bd68e9fe66ed5695b11411016c936fafaf2a1"
+    },
+    "bare": {
+      "path": "ground_truth_verification/months_reps_by_layer.npy",
+      "sha256": "4b3dab88ff4de79e6b75c0af5f52dfa064f1d0e44f86b046a7818cb44247b9ab"
+    },
+    "model": "gemma-2-2b",
+    "activation": "resid_post, final token, float32 source arrays, 12 x 2304 per layer",
+    "prompts": {
+      "contextualized": "The month of the year is {month}",
+      "bare": "{month}"
+    },
+    "paper": "https://arxiv.org/abs/2602.15029"
+  },
+  "method": {
+    "analysis_status": "paper-derived reanalysis after inspecting this activation snapshot; requires confirmation on a fresh held-out extraction",
+    "primary_layer": "layer_6",
+    "primary_metric": "circulant_r2",
+    "secondary_topology_metrics": [
+      "H0_wasserstein",
+      "H0_bottleneck",
+      "H1_wasserstein",
+      "H1_bottleneck"
+    ],
+    "secondary_paper_diagnostics": [
+      "fourier_alignment",
+      "neighbor_gap",
+      "h1_max_persistence"
+    ],
+    "n_nulls": 999,
+    "topology_n_nulls": 99,
+    "seed": 260215,
+    "null": "exact-spectrum low-rank surrogate from null_cloud.py",
+    "label_baseline": "independent month-label permutations",
+    "all_layer_analysis": "exploratory; not used to select primary layer"
+  },
+  "outputs": {
+    "directory": "outputs/month_circle_validation",
+    "raw_metrics": [
+      "metrics.json",
+      "layer_metrics.csv"
+    ],
+    "figures": [
+      "primary_validation.png",
+      "layerwise_geometry.png"
+    ],
+    "elapsed_seconds": 16.663888931274414
+  },
+  "claims": {
+    "observations": [
+      {
+        "metric": "circulant_r2",
+        "observed": 0.9255014316288593,
+        "null_pvalue": 0.001
+      }
+    ],
+    "hypothesis_result": "supported",
+    "supported_claim": "The exact-spectrum null removes Karkada-style translation symmetry at the pre-specified layer; generic H1 remains a secondary underpowered diagnostic.",
+    "non_claims": [
+      "A rejection does not prove semantic meaning or uniquely identify a circle.",
+      "The twelve-month sample is small and the all-layer curves are exploratory.",
+      "This statistic was not formally preregistered before the activation snapshot was inspected.",
+      "The local activation files do not record an immutable upstream model revision or tokenizer revision."
+    ]
+  }
+}

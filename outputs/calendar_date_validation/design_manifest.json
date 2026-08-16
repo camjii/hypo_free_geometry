@@ -1,0 +1,55 @@
+{
+  "experiment": {
+    "id": "karkada-inspired-365-dates-layer6-v1",
+    "question": "Can the unchanged null-cloud topology test detect non-null geometry in an unordered cloud of 365 calendar-date activations?",
+    "falsifiable_hypothesis": "At fixed layer 6, maximum finite H1 persistence rejects the exact-spectrum null at alpha=0.05.",
+    "source_revision": "e7d9e19cb30aea801c466be09f77c0ccf36ce9f2",
+    "commands": {
+      "extract": "python calendar_date_validation.py extract",
+      "analyze": "python calendar_date_validation.py analyze"
+    }
+  },
+  "model": {
+    "identifier": "google/gemma-2-2b",
+    "revision": "main",
+    "framework": "TransformerLens",
+    "precision": "float32",
+    "device": "cpu",
+    "activation_extraction": {
+      "hook": "blocks.6.hook_resid_post",
+      "layer": 6,
+      "token_position": "final non-padding prompt token",
+      "aggregation": "none",
+      "expected_shape": [
+        365,
+        2304
+      ]
+    }
+  },
+  "inputs": {
+    "dates": "365 dates of non-leap year 2001, January 1 through December 31",
+    "prompt_template": "The calendar date is {month} {day}",
+    "labels_available_to_inference": false,
+    "paper": "https://arxiv.org/abs/2602.15029"
+  },
+  "method": {
+    "primary_metric": "max_h1_persistence",
+    "secondary_metrics": [],
+    "alpha": 0.05,
+    "n_nulls": 99,
+    "seed": 260215,
+    "null": "unchanged exact-spectrum low_rank_gaussian from null_cloud.py",
+    "pca": "refit independently per cloud to 95% explained variance",
+    "row_order": "deterministically shuffled before inference",
+    "calendar_order_use": "visualization only, after metrics are saved",
+    "success_criterion": "primary inference is available and max_h1_persistence p <= 0.05",
+    "protocol_amendment": "Before extracting or inspecting 365-date activations, the primary metric was changed from the full-diagram leave-one-out H1 Wasserstein comparison to maximum finite H1 persistence. A synthetic 365-point timing run showed that the former did not finish 19 nulls in 120 seconds because its null-to-null distance matrix scales quadratically. The replacement is label-free, uses the same PCA and persistence pipeline, and scales linearly."
+  },
+  "claims": {
+    "non_claims": [
+      "This is not an exact reproduction of the paper's tokenized word embeddings.",
+      "Rejection does not identify a circle by name or establish semantic meaning.",
+      "Secondary metrics are descriptive and not alternate routes to success."
+    ]
+  }
+}

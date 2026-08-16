@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Pipeline benchmark score</title>
+<style>
+:root {
+  --ink:#1d1c1a; --muted:#5c584f; --line:#d9d4c8; --bg:#f7f4ee; --card:#fffdf8;
+  --accent:#2f5d50; --warn:#8a5a2b; --weak:#7a3e3e;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; font-family:Georgia,"Times New Roman",serif; color:var(--ink);
+  background:linear-gradient(180deg,#efe8da 0%, var(--bg) 220px, var(--bg) 100%);
+  line-height:1.45;
+}
+.wrap { max-width:980px; margin:0 auto; padding:28px 18px 48px; }
+h1,h2,h3 { font-weight:600; letter-spacing:0.01em; }
+h1 { font-size:1.8rem; margin:0 0 8px; }
+h2 { font-size:1.25rem; margin:28px 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+h3 { font-size:1.05rem; margin:18px 0 8px; }
+.card {
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:18px 18px 14px; box-shadow:0 1px 0 rgba(0,0,0,0.03);
+}
+.headline {
+  display:grid; grid-template-columns:1.3fr 1fr; gap:16px; align-items:stretch;
+}
+@media (max-width:800px) { .headline { grid-template-columns:1fr; } }
+.score-xl { font-size:2.8rem; line-height:1; margin:8px 0; }
+.meta { color:var(--muted); font-size:0.95rem; }
+.verdict { margin-top:10px; font-size:1.05rem; }
+.badge {
+  display:inline-block; border:1px solid var(--line); border-radius:999px;
+  padding:2px 8px; font-size:0.72rem; letter-spacing:0.04em; text-transform:uppercase;
+  background:#f3efe6; color:var(--muted); white-space:nowrap;
+}
+.badge.low { border-color:#c9a07a; color:var(--warn); }
+.bar-block { margin:10px 0 14px; }
+.bar-head { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.bar-label { font-weight:600; }
+.bar-score { font-variant-numeric:tabular-nums; color:var(--muted); font-size:0.92rem; }
+.bar-track { height:12px; background:#e8e6e1; border-radius:999px; overflow:hidden; }
+.bar-fill { height:100%; background:var(--accent); }
+table { width:100%; border-collapse:collapse; font-size:0.92rem; margin:8px 0 14px; }
+th, td { border-bottom:1px solid var(--line); padding:7px 6px; text-align:left; vertical-align:top; }
+th { color:var(--muted); font-weight:600; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.03em; }
+ul { padding-left:1.15rem; }
+li { margin:4px 0; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:800px) { .grid2 { grid-template-columns:1fr; } }
+.note { color:var(--muted); font-size:0.9rem; }
+code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:0.88em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="card headline">
+    <div>
+      <div class="meta">Synthetic geometry pipeline benchmark</div>
+      <h1>Pipeline benchmark score</h1>
+      <div class="score-xl">84.8 <span class="meta">/ 100</span></div>
+      <div class="meta">
+        Evidence coverage: 80.0%
+        &nbsp;·&nbsp; Earned 67.9 of 80.0 available points
+      </div>
+      <div style="margin-top:10px">
+        <span class="badge low">LOW CONFIDENCE</span>
+      </div>
+      <p class="verdict">Strong clean-topology recovery, but intrinsic-dimension calibration and/or PCA mode choice remain limiting; statistical evidence remains limited.</p>
+    </div>
+    <div>
+      <h3>Component snapshot</h3>
+      <svg viewBox="0 0 430 188" width="100%" height="188" role="img" aria-label="Component scores"><style>.svg-label{font:12px Georgia,serif;fill:#222}</style><text x="0" y="20" class="svg-label">Topology recovery</text><rect x="130" y="8" width="220" height="14" fill="#e8e6e1"/><rect x="130" y="8" width="220.0" height="14" fill="#2f5d50"/><text x="360" y="20" class="svg-label">30.0/30</text><text x="0" y="48" class="svg-label">PCA preservation</text><rect x="130" y="36" width="220" height="14" fill="#e8e6e1"/><rect x="130" y="36" width="220.0" height="14" fill="#2f5d50"/><text x="360" y="48" class="svg-label">20.0/20</text><text x="0" y="76" class="svg-label">Noise robustness</text><rect x="130" y="64" width="220" height="14" fill="#e8e6e1"/><rect x="130" y="64" width="144.7" height="14" fill="#2f5d50"/><text x="360" y="76" class="svg-label">13.2/20</text><text x="0" y="104" class="svg-label">Null calibration</text><rect x="130" y="92" width="220" height="14" fill="#e8e6e1"/><rect x="130" y="92" width="0.0" height="14" fill="#2f5d50"/><text x="360" y="104" class="svg-label">N/A</text><text x="0" y="132" class="svg-label">Intrinsic dimension</text><rect x="130" y="120" width="220" height="14" fill="#e8e6e1"/><rect x="130" y="120" width="103.6" height="14" fill="#2f5d50"/><text x="360" y="132" class="svg-label">4.7/10</text><text x="0" y="160" class="svg-label">Curvature</text><rect x="130" y="148" width="220" height="14" fill="#e8e6e1"/><rect x="130" y="148" width="0.0" height="14" fill="#2f5d50"/><text x="360" y="160" class="svg-label">N/A</text></svg>
+      <p class="note">Unmeasured components are N/A and excluded from the denominator.</p>
+    </div>
+  </section>
+
+  <h2>2. Component scores</h2>
+  <section class="card">
+    
+        <div class="bar-block">
+          <div class="bar-head">
+            <span class="bar-label">Topology recovery</span>
+            <span class="badge">STRONG</span>
+            <span class="bar-score">30.0 / 30</span>
+          </div>
+          <div class="bar-track" role="img" aria-label="Topology recovery 100%">
+            <div class="bar-fill" style="width:100.0%"></div>
+          </div>
+        </div>
+        
+        <div class="bar-block">
+          <div class="bar-head">
+            <span class="bar-label">PCA preservation</span>
+            <span class="badge">STRONG</span>
+            <span class="bar-score">20.0 / 20</span>
+          </div>
+          <div class="bar-track" role="img" aria-label="PCA preservation 100%">
+            <div class="bar-fill" style="width:100.0%"></div>
+          </div>
+        </div>
+        
+        <div class="bar-block">
+          <div class="bar-head">
+            <span class="bar-label">Noise robustness</span>
+            <span class="badge">MODERATE</span>
+            <span class="bar-score">13.2 / 20</span>
+          </div>
+          <div class="bar-track" role="img" aria-label="Noise robustness 66%">
+            <div class="bar-fill" style="width:65.8%"></div>
+          </div>
+        </div>
+        
+        <div class="bar-block">
+          <div class="bar-head">
+            <span class="bar-label">Null calibration</span>
+            <span class="badge">N/A</span>
+            <span class="bar-score">N/A</span>
+          </div>
+          <div class="bar-track" role="img" aria-label="Null calibration n/a">
+            <div class="bar-fill" style="width:0.0%"></div>
+          </div>
+        </div>
+        
+        <div class="bar-block">
+          <div class="bar-head">
+            <span class="bar-label">Intrinsic dimension</span>
+            <span class="badge">WEAK</span>
+            <span class="bar-score">4.7 / 10</span>
+          </div>
+          <div class="bar-track" role="img" aria-label="Intrinsic dimension 47%">
+            <div class="bar-fill" style="width:47.1%"></div>
+          </div>
+        </div>
+        
+        <div class="bar-block">
+          <div class="bar-head">
+            <span class="bar-label">Curvature</span>
+            <span class="badge">N/A</span>
+            <span class="bar-score">N/A</span>
+          </div>
+          <div class="bar-track" role="img" aria-label="Curvature n/a">
+            <div class="bar-fill" style="width:0.0%"></div>
+          </div>
+        </div>
+        
+  </section>
+
+  <h2>3. Main findings</h2>
+  <section class="card"><ul><li>Clean topology recovery scored 30.0/30.</li><li>parallel-analysis PCA erased the circle’s H1 loop (components≈1.0).</li><li>TwoNN intrinsic dimension became unstable under noise.</li><li>Null calibration was not scored because only 2 seed(s) were available.</li><li>Run at least 10 seeds before interpreting rejection rates.</li></ul></section>
+
+  <h2>4. Detailed scoring</h2>
+  <section class="card">
+    <table>
+      <thead><tr><th>Component</th><th>Earned</th><th>Available</th><th>Status</th><th>Interpretation</th></tr></thead>
+      <tbody><tr><td>Topology recovery</td><td>30.0</td><td>30.0</td><td><span class='badge'>STRONG</span></td><td>Earned 30.0 of 30 on clean controls.</td></tr><tr><td>PCA preservation</td><td>20.0</td><td>20.0</td><td><span class='badge'>STRONG</span></td><td>Production mode variance_95 retention 100%.</td></tr><tr><td>Noise robustness</td><td>13.2</td><td>20.0</td><td><span class='badge'>MODERATE</span></td><td>Mean topology retention at max noise: 66%.</td></tr><tr><td>Null calibration</td><td>0.0</td><td>N/A</td><td><span class='badge'>N/A</span></td><td>Excluded from denominator; fewer than 10 seeds.</td></tr><tr><td>Intrinsic dimension</td><td>4.7</td><td>10.0</td><td><span class='badge'>WEAK</span></td><td>Clean acc 0.78; noisy acc 0.00.</td></tr><tr><td>Curvature</td><td>0.0</td><td>N/A</td><td><span class='badge'>N/A</span></td><td>insufficient repeated measurements</td></tr></tbody>
+    </table>
+
+    <h3>Topology recovery — 30 points</h3>
+    <p class="note">Clean controls at noise=0 using mode <code>none</code>.
+    Formulas: circle=clip(H1/0.15), clusters=clip(H0/0.25), line/tree=clip(1−H1/0.08).</p>
+    <table><thead><tr><th>Control</th><th>Metric</th><th>Earned</th><th>Max</th></tr></thead>
+    <tbody><tr><td>circle_h1</td><td>0.556</td><td>10.0</td><td>10</td></tr><tr><td>cluster_h0</td><td>0.742</td><td>10.0</td><td>10</td></tr><tr><td>line_no_h1</td><td>0.000</td><td>5.0</td><td>5</td></tr><tr><td>ytree_no_h1</td><td>0.000</td><td>5.0</td><td>5</td></tr></tbody></table>
+
+    <h3>PCA preservation — 20 points</h3>
+    <p class="note">Baseline is no-PCA. Overall points use production mode
+    <code>variance_95</code> only. Oracle is diagnostic and does not raise the score.</p>
+    <table><thead><tr><th>Mode</th><th>Circle H1</th><th>Cluster H0</th><th>Circle ret.</th><th>Cluster ret.</th><th>Mode score</th><th>Flag</th></tr></thead>
+    <tbody><tr><td>none</td><td>0.556</td><td>0.742</td><td>1.00</td><td>1.00</td><td>1.00</td><td>ok</td></tr><tr><td>variance_95 (production)</td><td>0.556</td><td>0.743</td><td>1.00</td><td>1.00</td><td>1.00</td><td>ok</td></tr><tr><td>parallel_analysis</td><td>0.000</td><td>0.743</td><td>0.00</td><td>1.00</td><td>0.50</td><td>destroys H1</td></tr><tr><td>oracle (diagnostic)</td><td>0.556</td><td>0.743</td><td>1.00</td><td>1.00</td><td>1.00</td><td>ok</td></tr></tbody></table>
+
+    <h3>Noise robustness — 20 points</h3>
+    <p class="note">Retention at max noise=0.15 using production PCA. Non-loop controls are not rewarded for noise-created H1.</p>
+    <table><thead><tr><th>Control</th><th>Clean</th><th>Max noise</th><th>Retained</th></tr></thead>
+    <tbody>
+      <tr><td>Circle H1</td><td>0.556</td><td>0.293</td><td>52.8%</td></tr>
+      <tr><td>Cluster H0</td><td>0.743</td><td>0.586</td><td>78.8%</td></tr>
+    </tbody></table>
+    <p>Earned: 13.2 / 20</p>
+
+    <h3>Null calibration — 20 points</h3>
+    <p><strong>Null calibration: N/A</strong><br>Reason: insufficient seeds for reliable rejection-rate estimates</p>
+
+    <h3>Intrinsic dimension — 10 points</h3>
+    <p class="note">id_score = 0.6·clean_accuracy + 0.4·noisy_accuracy on line/circle/Swiss-roll/Y-tree.
+    Null rejection belongs under null calibration, not here.</p>
+    <table><thead><tr><th>Shape</th><th>Expected</th><th>Clean |err|</th><th>Noisy |err|</th><th>Clean acc</th><th>Noisy acc</th></tr></thead>
+    <tbody><tr><td>line</td><td>1.0</td><td>0.134</td><td>6.419</td><td>0.87</td><td>0.00</td></tr><tr><td>circle</td><td>1.0</td><td>0.129</td><td>4.998</td><td>0.87</td><td>0.00</td></tr><tr><td>swiss_roll</td><td>2.0</td><td>0.771</td><td>4.385</td><td>0.61</td><td>0.00</td></tr><tr><td>y_tree</td><td>1.0</td><td>0.213</td><td>5.408</td><td>0.79</td><td>0.00</td></tr></tbody></table>
+    <p>Earned: 4.7 / 10
+    (clean=0.78, noisy=0.00)</p>
+
+    <h3>Curvature — diagnostic only</h3>
+    <p><strong>Curvature: N/A</strong><br>Reason: insufficient repeated measurements</p>
+  </section>
+
+  <h2>5. Configuration</h2>
+  <section class="card">
+    <div class="grid2">
+      <ul>
+        <li>Datasets: isotropic_gaussian, spiked_gaussian, line, two_clusters, circle, swiss_roll, y_tree</li>
+        <li>Sample size: 36</li>
+        <li>Ambient dimension: 12</li>
+        <li>Noise levels: [0.0, 0.05, 0.15]</li>
+        <li>Seeds: [0, 1] (n=2)</li>
+      </ul>
+      <ul>
+        <li>PCA modes: ['none', 'variance_95', 'parallel_analysis', 'oracle']</li>
+        <li>Production PCA: <code>variance_95</code></li>
+        <li>Null draws: 19</li>
+        <li>Alpha: 0.05</li>
+        <li>Runtime: 431.7s</li>
+        <li>Total runs: 168</li>
+      </ul>
+    </div>
+  </section>
+
+  <h2>6. Limitations and recommendations</h2>
+  <section class="card">
+    <ul>
+      <li>Only 2 seeds: rejection-rate null calibration is N/A until ≥10 seeds.</li>
+      <li>Discrete Monte Carlo p-values are coarse; interpret rates cautiously near alpha.</li>
+      <li>Some PCA selectors (notably parallel analysis) can collapse loop-bearing clouds and erase H1.</li>
+      <li>TwoNN intrinsic-dimension estimates are noise-sensitive in ambient embeddings.</li>
+      <li>Curvature has fewer than 10 finite measurements and stays exploratory/unavailable.</li>
+      <li>This score evaluates predefined synthetic controls; it does not prove correctness on real LLM activations.</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
