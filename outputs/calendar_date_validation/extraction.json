@@ -1,0 +1,10 @@
+{
+  "path": "outputs/calendar_date_validation/calendar_dates_layer6.npz",
+  "sha256": "bb30511be7cb2d818b91cf653131eca3c33b21290be1f29512cfb23553d71cbb",
+  "shape": [
+    365,
+    2304
+  ],
+  "dtype": "float32",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf"
+}

@@ -1,0 +1,7 @@
+{
+  "activation_sha256": "bb30511be7cb2d818b91cf653131eca3c33b21290be1f29512cfb23553d71cbb",
+  "elapsed_seconds": 452.3002059459686,
+  "python": "3.11.14",
+  "numpy": "2.2.6",
+  "os": "macOS-15.7.3-arm64-arm-64bit"
+}
