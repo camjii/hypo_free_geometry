@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "chess_pieces",
+  "template_name": "chess_piece_v7",
+  "template": "The board piece is the {value}.",
+  "template_family": "chess_piece",
+  "n_prompts": 6,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/chess_pieces__chess_piece_v7_layer_6.npz",
+    "sha256": "da1de33e66ef48b2897a1e48589f74f599cd13a6d35cd15e0b7364a2c17dc021",
+    "shape": [
+      6,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

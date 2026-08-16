@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "musical_notes",
+  "template_name": "musical_note_v10",
+  "template": "The melody contains the note {value}.",
+  "template_family": "musical_note",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 36,
+  "hidden_size": 4096,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/qwen3-8b/variants/musical_notes__musical_note_v10_layer_6.npz",
+    "sha256": "0a74b91c65d26c04278348999eeeef77f4e026e172f848f8de5d3ae1f5a46f06",
+    "shape": [
+      12,
+      4096
+    ],
+    "dtype": "float32"
+  }
+}

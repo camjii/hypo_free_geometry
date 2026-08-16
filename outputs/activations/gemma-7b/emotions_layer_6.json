@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-final-token-activation-extraction-v1",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "final non-padding prompt token",
+  "prompt_set": "emotions",
+  "template_name": "emotion",
+  "template": "The emotion they are feeling is {value}",
+  "expected_topology": "circumplex (S1)",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/emotions_layer_6.npz",
+    "sha256": "66dbff96b64bfaab723cf82ca9220d0ce48f49fe38ec9ce3054f442b1c623102",
+    "shape": [
+      12,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "directions_3d",
+  "template_name": "movement_direction_v5",
+  "template": "The object travels {value}.",
+  "template_family": "movement_direction",
+  "n_prompts": 6,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/directions_3d__movement_direction_v5_layer_6.npz",
+    "sha256": "c06f92259d55d915166517d56895a1c3a8d6d786541f04560bd40f58101937cc",
+    "shape": [
+      6,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

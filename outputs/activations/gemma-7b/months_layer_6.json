@@ -1,0 +1,45 @@
+{
+  "experiment": "gemma-final-token-activation-extraction-v1",
+  "source_revision": "e7d9e19cb30aea801c466be09f77c0ccf36ce9f2",
+  "command": "/opt/anaconda3/bin/python activation_extraction.py --prompt-set months --layer 6",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "final non-padding prompt token",
+  "prompt_set": "months",
+  "template_name": "month_of_year",
+  "template": "The month of the year is {value}",
+  "n_prompts": 12,
+  "batch_size": 4,
+  "seed": 260215,
+  "requested_dtype": "auto",
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "started_unix": 1786767774.502846,
+  "elapsed_seconds": 433.35454297065735,
+  "environment": {
+    "python": "3.13.5",
+    "platform": "macOS-15.7.3-arm64-arm-64bit-Mach-O",
+    "torch": "2.12.1",
+    "transformers": "5.13.0",
+    "huggingface_hub": "1.22.0"
+  },
+  "limitations": [
+    "Floating-point results can vary across hardware and accelerator kernels.",
+    "This artifact contains one layer and one token position per prompt."
+  ],
+  "artifact": {
+    "path": "outputs/activations/gemma-7b/months_layer_6.npz",
+    "sha256": "642a44a6686701a40db08b7500d369b4c0454f284ab8ae86ce765b73a523f9ff",
+    "shape": [
+      12,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

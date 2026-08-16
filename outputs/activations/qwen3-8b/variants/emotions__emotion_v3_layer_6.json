@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "emotions",
+  "template_name": "emotion_v3",
+  "template": "Their emotional state is {value}.",
+  "template_family": "emotion",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 36,
+  "hidden_size": 4096,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/qwen3-8b/variants/emotions__emotion_v3_layer_6.npz",
+    "sha256": "9a53717162be5c82fcd1081cd57fc07c9e735508e0df96c7ea6cd1ab8e042d8d",
+    "shape": [
+      12,
+      4096
+    ],
+    "dtype": "float32"
+  }
+}

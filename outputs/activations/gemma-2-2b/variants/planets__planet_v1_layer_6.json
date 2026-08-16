@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "planets",
+  "template_name": "planet_v1",
+  "template": "The planet is {value}.",
+  "template_family": "planet",
+  "n_prompts": 8,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/planets__planet_v1_layer_6.npz",
+    "sha256": "f747801c9cd5450d007cf20ddd5dbfb731e97b63290cc4e6357bf62d250b1a4b",
+    "shape": [
+      8,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "directions_3d",
+  "template_name": "movement_direction_v1",
+  "template": "The direction of movement is {value}.",
+  "template_family": "movement_direction",
+  "n_prompts": 6,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/variants/directions_3d__movement_direction_v1_layer_6.npz",
+    "sha256": "e3c0f38988aed29ca0065c906c59b8bbca9320cf552ba9f4bdfc80b02e9d7097",
+    "shape": [
+      6,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "amino_acids",
+  "template_name": "amino_acid_v5",
+  "template": "The protein sequence includes {value}.",
+  "template_family": "amino_acid",
+  "n_prompts": 20,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/amino_acids__amino_acid_v5_layer_6.npz",
+    "sha256": "870d14b4826fa19184700daeea8e81307f8160e6c85b565e466e35eaa770479d",
+    "shape": [
+      20,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

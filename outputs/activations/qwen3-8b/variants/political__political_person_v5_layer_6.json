@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "political",
+  "template_name": "political_person_v5",
+  "template": "The public figure in this political context is {value}.",
+  "template_family": "political_person",
+  "n_prompts": 10,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 36,
+  "hidden_size": 4096,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/qwen3-8b/variants/political__political_person_v5_layer_6.npz",
+    "sha256": "9193385e74a57f8352757bfa22cc32e26d8779d04b25c884e9e7f77ae6dad8c9",
+    "shape": [
+      10,
+      4096
+    ],
+    "dtype": "float32"
+  }
+}

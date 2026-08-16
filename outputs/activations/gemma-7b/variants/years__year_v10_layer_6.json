@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "years",
+  "template_name": "year_v10",
+  "template": "The calendar year is {value}.",
+  "template_family": "year",
+  "n_prompts": 11,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/variants/years__year_v10_layer_6.npz",
+    "sha256": "c3e8f3e03a7825aeedcef4512c660c799190f4f0515bca561a97d8d8ecf10cb0",
+    "shape": [
+      11,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

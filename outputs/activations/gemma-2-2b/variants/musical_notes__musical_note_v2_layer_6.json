@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "musical_notes",
+  "template_name": "musical_note_v2",
+  "template": "The note being played is {value}.",
+  "template_family": "musical_note",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/musical_notes__musical_note_v2_layer_6.npz",
+    "sha256": "7826360a626ad738618ceb78477e31663b87f2e505324ebe0de80a62beee36c9",
+    "shape": [
+      12,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

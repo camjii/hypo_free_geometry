@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "planets",
+  "template_name": "planet_v9",
+  "template": "The planetary body is {value}.",
+  "template_family": "planet",
+  "n_prompts": 8,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/variants/planets__planet_v9_layer_6.npz",
+    "sha256": "40b00cc1534cf085e9ef3a5e7394a4b2f9dc7a3365807dddab99161307418fd9",
+    "shape": [
+      8,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}

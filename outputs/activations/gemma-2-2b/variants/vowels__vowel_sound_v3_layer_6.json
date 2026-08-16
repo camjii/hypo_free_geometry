@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "vowels",
+  "template_name": "vowel_sound_v3",
+  "template": "The spoken vowel sound is \"{value}\".",
+  "template_family": "vowel_sound",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/vowels__vowel_sound_v3_layer_6.npz",
+    "sha256": "1237976167b16a8d2f86e83f64d2ec371d620933c04632b0a3043e550aefe613",
+    "shape": [
+      12,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

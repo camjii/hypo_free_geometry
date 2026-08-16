@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "cities_us",
+  "template_name": "city_v8",
+  "template": "The geographic location is the city {value}.",
+  "template_family": "city",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/cities_us__city_v8_layer_6.npz",
+    "sha256": "7dbd06e4db18d71691364301f1c4d29871f7a8f6e7f45181f3ae08fe9332c576",
+    "shape": [
+      12,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

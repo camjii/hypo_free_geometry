@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "quantities",
+  "template_name": "quantity_v1",
+  "template": "The quantity is {value}.",
+  "template_family": "quantity",
+  "n_prompts": 7,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/quantities__quantity_v1_layer_6.npz",
+    "sha256": "b775840e17f1fac7adecfb773a60c5a686b95416dd72d3cba7469ac720933eb7",
+    "shape": [
+      7,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

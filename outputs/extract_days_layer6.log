@@ -1,0 +1,10 @@
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights: 100%|██████████| 254/254 [00:00<00:00, 6329.56it/s]
+{
+  "activations": "outputs/activations/gemma-7b/days_layer_6.npz",
+  "manifest": "outputs/activations/gemma-7b/days_layer_6.json",
+  "shape": [
+    7,
+    3072
+  ],
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb"
+}

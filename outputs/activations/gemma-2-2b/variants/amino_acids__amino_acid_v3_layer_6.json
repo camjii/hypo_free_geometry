@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-2-2b",
+  "model_revision": "c5ebcd40d208330abc697524c919956e692655cf",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "amino_acids",
+  "template_name": "amino_acid_v3",
+  "template": "The amino acid residue is {value}.",
+  "template_family": "amino_acid",
+  "n_prompts": 20,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "float32",
+  "n_model_layers": 26,
+  "hidden_size": 2304,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-2-2b/variants/amino_acids__amino_acid_v3_layer_6.npz",
+    "sha256": "25eda7b2289fed5c69c202f8da9d98c6fd7fa14b1c0563713c233027af3f3dd2",
+    "shape": [
+      20,
+      2304
+    ],
+    "dtype": "float32"
+  }
+}

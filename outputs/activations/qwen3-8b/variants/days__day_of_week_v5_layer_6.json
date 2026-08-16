@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "Qwen/Qwen3-8B",
+  "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "days",
+  "template_name": "day_of_week_v5",
+  "template": "The weekday is {value}.",
+  "template_family": "day_of_week",
+  "n_prompts": 7,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 36,
+  "hidden_size": 4096,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/qwen3-8b/variants/days__day_of_week_v5_layer_6.npz",
+    "sha256": "5b661f4531808f77e5276014bde7e08a4727c7cbed833315b63428520b1cc865",
+    "shape": [
+      7,
+      4096
+    ],
+    "dtype": "float32"
+  }
+}

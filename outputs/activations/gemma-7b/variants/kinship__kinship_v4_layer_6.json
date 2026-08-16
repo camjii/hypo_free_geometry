@@ -1,0 +1,32 @@
+{
+  "experiment": "gemma-concept-token-activation-extraction-v2",
+  "model_id": "google/gemma-7b",
+  "model_revision": "ff6768d9368919a1f025a54f9f5aa0ee591730bb",
+  "framework": "Hugging Face Transformers",
+  "layer": 6,
+  "layer_indexing": "zero-based decoder block",
+  "activation": "decoder-block output residual stream",
+  "token_position": "last token of the concept value span",
+  "prompt_set": "kinship",
+  "template_name": "kinship_v4",
+  "template": "Their relative is the {value}.",
+  "template_family": "kinship",
+  "n_prompts": 12,
+  "seed": 260215,
+  "resolved_device": "cpu",
+  "resolved_dtype": "bfloat16",
+  "n_model_layers": 28,
+  "hidden_size": 3072,
+  "environment": {
+    "python": "3.13.5"
+  },
+  "artifact": {
+    "path": "/Users/henry/Desktop/Algoverse/hypo_free_geometry/outputs/activations/gemma-7b/variants/kinship__kinship_v4_layer_6.npz",
+    "sha256": "2bb5bd5e1e5e3a23ed24feb60200ad9a7aad8079f4a368586e585236d1098a77",
+    "shape": [
+      12,
+      3072
+    ],
+    "dtype": "float32"
+  }
+}
