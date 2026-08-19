@@ -1,0 +1,1635 @@
+{
+  "schema_version": 2,
+  "n_sets": 68,
+  "family_topology": {
+    "line": {
+      "counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "shape": "interval",
+      "why": "An ordered scale is a single arc: connected, contractible, no loop and no cavity."
+    },
+    "circle": {
+      "counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "shape": "S1",
+      "why": "A cyclic order closes back on itself, giving exactly one independent loop."
+    },
+    "plane": {
+      "counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "shape": "disc",
+      "why": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers."
+    },
+    "grid": {
+      "counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "shape": "disc",
+      "why": "A rectangular lattice is a 2D patch with no wraparound, so it is contractible like any other plane."
+    },
+    "sphere": {
+      "counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          1,
+          1
+        ]
+      },
+      "shape": "S2",
+      "why": "Points spread over a globe enclose one cavity and, unlike a torus, admit no independent loop."
+    },
+    "tree": {
+      "counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "shape": "tree",
+      "why": "A hierarchy branches without ever rejoining, so it is connected and loop-free; branching shows up in geometry, not homology."
+    },
+    "spiral": {
+      "counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "shape": "arc",
+      "why": "A spiral is a single curve that never closes.  Periodicity may produce a near-loop with low persistence, which is why H1 is expected to be zero rather than one."
+    },
+    "torus": {
+      "counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          2,
+          2
+        ],
+        "H2": [
+          1,
+          1
+        ]
+      },
+      "shape": "T2",
+      "why": "Two independent cyclic coordinates give two loops and one cavity."
+    }
+  },
+  "expectations": {
+    "airports_global": {
+      "family": "sphere",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          1,
+          1
+        ]
+      },
+      "model_shape": "S2",
+      "rationale": "Points spread over a globe enclose one cavity and, unlike a torus, admit no independent loop.",
+      "n_values": 12,
+      "expected_topology": "2D sphere (S2)",
+      "review_status": "proposed"
+    },
+    "amino_acids": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 20,
+      "expected_topology": "2D property plane"
+    },
+    "apery_numbers": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 50,
+      "expected_topology": null
+    },
+    "bearings_degrees": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "bearing circle in degrees (S1)",
+      "review_status": "proposed"
+    },
+    "beaufort_scale": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 13,
+      "expected_topology": "1D wind-force order",
+      "review_status": "proposed"
+    },
+    "bell_numbers": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 49,
+      "expected_topology": null
+    },
+    "calendar_dates": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 24,
+      "expected_topology": null
+    },
+    "catalan_numbers": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 49,
+      "expected_topology": null
+    },
+    "chess_pieces": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 6,
+      "expected_topology": "1D value poset",
+      "low_confidence": [
+        "n=6 is too few points to separate a loop from noise"
+      ]
+    },
+    "chess_squares": {
+      "family": "grid",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A rectangular lattice is a 2D patch with no wraparound, so it is contractible like any other plane.",
+      "n_values": 64,
+      "expected_topology": "8x8 grid (2D)"
+    },
+    "chinese_zodiac": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "twelve-year cycle (S1)",
+      "review_status": "proposed"
+    },
+    "circle_of_fifths": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "circle of fifths (S1)"
+    },
+    "cities_asia": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 12,
+      "expected_topology": "2D map plane",
+      "review_status": "proposed"
+    },
+    "cities_europe": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 12,
+      "expected_topology": "2D map plane",
+      "review_status": "proposed"
+    },
+    "cities_global": {
+      "family": "sphere",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          1,
+          1
+        ]
+      },
+      "model_shape": "S2",
+      "rationale": "Points spread over a globe enclose one cavity and, unlike a torus, admit no independent loop.",
+      "n_values": 12,
+      "expected_topology": "2D sphere (S2)"
+    },
+    "cities_south_america": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 12,
+      "expected_topology": "2D map plane",
+      "review_status": "proposed"
+    },
+    "cities_us": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 12,
+      "expected_topology": "2D map plane"
+    },
+    "clock_hours": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "clock circle (S1)"
+    },
+    "clock_minutes": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "minute-hand circle (S1)",
+      "review_status": "proposed"
+    },
+    "colors": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "hue circle (S1)"
+    },
+    "compass": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 8,
+      "expected_topology": "bearing circle (S1)"
+    },
+    "compass_16": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 16,
+      "expected_topology": "sixteen-point bearing circle (S1)",
+      "review_status": "proposed"
+    },
+    "days": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 7,
+      "expected_topology": "weekday circle (S1)",
+      "low_confidence": [
+        "n=7 is marginal for a circle",
+        "fewer than 8 points for an expected loop"
+      ]
+    },
+    "decades": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 12,
+      "expected_topology": "1D line (ordered)",
+      "review_status": "proposed"
+    },
+    "directions_3d": {
+      "family": "sphere",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          1,
+          1
+        ]
+      },
+      "model_shape": "S2",
+      "rationale": "Points spread over a globe enclose one cavity and, unlike a torus, admit no independent loop.",
+      "n_values": 6,
+      "expected_topology": "unit sphere (S2)",
+      "low_confidence": [
+        "n=6 samples three axis pairs, too sparse for a sphere"
+      ]
+    },
+    "education_levels": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 9,
+      "expected_topology": "1D attainment order",
+      "review_status": "proposed"
+    },
+    "elements": {
+      "family": "spiral",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "arc",
+      "rationale": "A spiral is a single curve that never closes.  Periodicity may produce a near-loop with low persistence, which is why H1 is expected to be zero rather than one.",
+      "n_values": 20,
+      "expected_topology": "periodic spiral"
+    },
+    "emotions": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "circumplex (S1)"
+    },
+    "fibonacci_numbers": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 49,
+      "expected_topology": null
+    },
+    "food_taxonomy": {
+      "family": "tree",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "tree",
+      "rationale": "A hierarchy branches without ever rejoining, so it is connected and loop-free; branching shows up in geometry, not homology.",
+      "n_values": 16,
+      "expected_topology": "tree (H0, no loops)",
+      "review_status": "proposed"
+    },
+    "frequency_adverbs": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 8,
+      "expected_topology": "1D frequency scale",
+      "review_status": "proposed"
+    },
+    "go_coordinates": {
+      "family": "grid",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A rectangular lattice is a 2D patch with no wraparound, so it is contractible like any other plane.",
+      "n_values": 16,
+      "expected_topology": "4x4 grid (2D)",
+      "review_status": "proposed"
+    },
+    "hours_24": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "daily circle (S1)",
+      "review_status": "proposed"
+    },
+    "ipa_consonants": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 12,
+      "expected_topology": "place-by-manner plane (2D)",
+      "review_status": "proposed"
+    },
+    "keyboard_letters": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 10,
+      "expected_topology": "QWERTY layout plane (2D)",
+      "review_status": "proposed"
+    },
+    "kinship": {
+      "family": "tree",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "tree",
+      "rationale": "A hierarchy branches without ever rejoining, so it is connected and loop-free; branching shows up in geometry, not homology.",
+      "n_values": 12,
+      "expected_topology": "tree / relational grid"
+    },
+    "language_families": {
+      "family": "tree",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "tree",
+      "rationale": "A hierarchy branches without ever rejoining, so it is connected and loop-free; branching shows up in geometry, not homology.",
+      "n_values": 16,
+      "expected_topology": "tree (H0, no loops)",
+      "review_status": "proposed"
+    },
+    "letter_grades": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 11,
+      "expected_topology": "1D grade order",
+      "review_status": "proposed"
+    },
+    "lucas_numbers": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 50,
+      "expected_topology": null
+    },
+    "military_ranks": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 10,
+      "expected_topology": "1D rank order",
+      "review_status": "proposed"
+    },
+    "mohs_hardness": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 10,
+      "expected_topology": "1D hardness order",
+      "review_status": "proposed"
+    },
+    "month_abbreviations": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "calendar circle (S1)",
+      "review_status": "proposed"
+    },
+    "months": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "calendar circle (S1)"
+    },
+    "moon_phases": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 8,
+      "expected_topology": "lunar cycle (S1)",
+      "review_status": "proposed"
+    },
+    "musical_notes": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "chromatic circle (S1)"
+    },
+    "partition_numbers": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 49,
+      "expected_topology": null
+    },
+    "planets": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 8,
+      "expected_topology": "1D ordered / log line"
+    },
+    "political": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 10,
+      "expected_topology": "1D-2D ideology plane"
+    },
+    "powers_of_two": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 12,
+      "expected_topology": "1D log line",
+      "review_status": "proposed"
+    },
+    "prime_numbers": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 50,
+      "expected_topology": null
+    },
+    "probability_words": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 9,
+      "expected_topology": "1D likelihood scale",
+      "review_status": "proposed"
+    },
+    "quantities": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 7,
+      "expected_topology": "1D log line",
+      "low_confidence": [
+        "n=7 is marginal, though a line needs fewer points than a loop"
+      ]
+    },
+    "ramanujan_tau": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 50,
+      "expected_topology": null
+    },
+    "recaman_sequence": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 46,
+      "expected_topology": null
+    },
+    "riemann_zeta_zero_ordinates": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 50,
+      "expected_topology": null
+    },
+    "roman_numerals": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 10,
+      "expected_topology": "1D line (ordered)",
+      "review_status": "proposed"
+    },
+    "seasons": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 4,
+      "expected_topology": "annual circle (S1)",
+      "low_confidence": [
+        "n=4 cannot support a loop; a cyclic fit is saturated by construction",
+        "fewer than 8 points for an expected loop"
+      ]
+    },
+    "size_adjectives": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 9,
+      "expected_topology": "1D magnitude scale",
+      "review_status": "proposed"
+    },
+    "solfege": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "chromatic circle in solfege (S1)",
+      "review_status": "proposed"
+    },
+    "spreadsheet_cells": {
+      "family": "grid",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A rectangular lattice is a 2D patch with no wraparound, so it is contractible like any other plane.",
+      "n_values": 16,
+      "expected_topology": "4x4 grid (2D)",
+      "review_status": "proposed"
+    },
+    "taxonomy": {
+      "family": "tree",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "tree",
+      "rationale": "A hierarchy branches without ever rejoining, so it is connected and loop-free; branching shows up in geometry, not homology.",
+      "n_values": 16,
+      "expected_topology": "tree (H0, no loops)"
+    },
+    "temperature_words": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 9,
+      "expected_topology": "1D intensity scale",
+      "review_status": "proposed"
+    },
+    "us_states": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 16,
+      "expected_topology": "2D map plane",
+      "review_status": "proposed"
+    },
+    "vowels": {
+      "family": "plane",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "disc",
+      "rationale": "A bounded 2D patch is contractible; it is distinguished from a line by intrinsic dimension, not by Betti numbers.",
+      "n_values": 12,
+      "expected_topology": "vowel quadrilateral (2D)"
+    },
+    "weekday_abbreviations": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 7,
+      "expected_topology": "weekday circle (S1)",
+      "review_status": "proposed",
+      "low_confidence": [
+        "n=7 is marginal for a circle",
+        "fewer than 8 points for an expected loop"
+      ]
+    },
+    "world_capitals": {
+      "family": "sphere",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          1,
+          1
+        ]
+      },
+      "model_shape": "S2",
+      "rationale": "Points spread over a globe enclose one cavity and, unlike a torus, admit no independent loop.",
+      "n_values": 16,
+      "expected_topology": "2D sphere (S2)",
+      "review_status": "proposed"
+    },
+    "years": {
+      "family": "line",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          0,
+          0
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "interval",
+      "rationale": "An ordered scale is a single arc: connected, contractible, no loop and no cavity.",
+      "n_values": 11,
+      "expected_topology": "1D line (ordered)"
+    },
+    "zodiac_signs": {
+      "family": "circle",
+      "expected_counts": {
+        "H0": [
+          1,
+          1
+        ],
+        "H1": [
+          1,
+          1
+        ],
+        "H2": [
+          0,
+          0
+        ]
+      },
+      "model_shape": "S1",
+      "rationale": "A cyclic order closes back on itself, giving exactly one independent loop.",
+      "n_values": 12,
+      "expected_topology": "annual zodiac circle (S1)",
+      "review_status": "proposed"
+    }
+  }
+}
